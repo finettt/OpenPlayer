@@ -1,6 +1,7 @@
 'use strict';
 
 const mineflayer = require('mineflayer');
+const pathfinder = require('mineflayer-pathfinder').pathfinder;
 
 const config = require('./config');
 const { Logger } = require('./src/logger');
@@ -36,6 +37,7 @@ function createBot() {
     port: config.bot.port,
     username: config.bot.username,
   });
+  bot.loadPlugin(pathfinder);
 
   const sendChat = makeChatSender(bot, config, log.child('chat'));
 
