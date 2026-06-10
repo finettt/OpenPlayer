@@ -28,6 +28,14 @@ class SessionManager {
       this.log.warn('SOUL.md not found, using default prompt');
     }
 
+    let tools = '';
+    try {
+      const toolsText = fs.readFileSync(this.config.storage.toolsFile, 'utf8').trim();
+      tools = `\n\n## Available Tools\n${toolsText}`;
+    } catch {
+      this.log.warn('TOOLS.md not found');
+    }
+
     let memory = '';
     try {
       const mem = fs.readFileSync(this.config.storage.memoryFile, 'utf8').trim();
@@ -40,7 +48,7 @@ class SessionManager {
       ? `\n\n## Summary of previous conversation:\n${this.summary}`
       : '';
 
-    return { role: 'system', content: soul + memory + summaryBlock };
+    return { role: 'system', content: soul + tools + memory + summaryBlock };
   }
 
   push(message) {

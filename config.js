@@ -59,6 +59,7 @@ module.exports = {
   storage: {
     dir: path.join(__dirname, 'data'),
     soulFile: path.join(__dirname, 'SOUL.md'),
+    toolsFile: path.join(__dirname, 'TOOLS.md'),
     transcriptFile: path.join(__dirname, 'data', 'transcript.jsonl'),
     memoryFile: path.join(__dirname, 'data', 'MEMORY.md'),
   },
