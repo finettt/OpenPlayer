@@ -1,0 +1,21 @@
+{
+  "name": "minebot",
+  "version": "1.0.0",
+  "description": "Production-grade Minecraft LLM agent with vision (OpenClaw-inspired architecture)",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "check": "node --check index.js && node --check config.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "canvas": "^3.2.3",
+    "mineflayer": "^4.37.1",
+    "openai": "^6.42.0",
+    "prismarine-viewer": "^1.33.0",
+    "puppeteer": "^25.1.0"
+  }
+}
