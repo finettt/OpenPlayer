@@ -23,9 +23,9 @@ class Agent {
     }
 
     let iterations = 0;
-    while (iterations < this.config.agent.maxIterations) {
+    while (true) {
       iterations++;
-      this.log.info(`Reasoning step ${iterations}/${this.config.agent.maxIterations}`);
+      this.log.info(`Reasoning step ${iterations}`);
 
       let responseMessage;
       try {
@@ -46,11 +46,14 @@ class Agent {
       const toolCalls = responseMessage.tool_calls ?? [];
 
       if (toolCalls.length === 0) {
-        if (responseMessage.content?.trim()) {
-          this.log.warn('Model responded with text without send_message — intercepting');
-          await this.toolContext.sendChat(responseMessage.content);
-        }
-        return;
+        this.log.warn('Model responded with plain text instead of using tools — sending reminder');
+        this.session.push({
+          role: 'user',
+          content:
+            '[SYSTEM]: You MUST use tools to interact. Use send_message to talk to the player. ' +
+            'Use end_loop when you are done. Do NOT respond with plain text.',
+        });
+        continue;
       }
 
       let isFinal = false;
@@ -89,30 +92,6 @@ class Agent {
       }
 
       if (isFinal) return;
-    }
-
-    this.log.warn('Iteration limit reached, run terminated');
-    this.session.push({
-      role: 'user',
-      content: '[SYSTEM]: Step limit reached. Briefly respond to the player via send_message.',
-    });
-    try {
-      const finalMsg = await this.llm.chat({
-        messages: this.session.getContext(),
-        tools: this.registry.getSchemas(),
-        toolChoice: { type: 'function', function: { name: 'send_message' } },
-      });
-      this.session.push(finalMsg);
-      for (const tc of finalMsg.tool_calls ?? []) {
-        const result = await this.registry.execute(
-          tc.function?.name, tc.function?.arguments, this.toolContext
-        );
-        this.session.push({
-          role: 'tool', tool_call_id: tc.id, name: tc.function?.name, content: result.content,
-        });
-      }
-    } catch (err) {
-      this.log.error(`Failed to finalize run: ${err.message}`);
     }
   }
 }

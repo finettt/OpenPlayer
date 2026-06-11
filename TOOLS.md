@@ -40,5 +40,8 @@
 - **get_health_status** — Get current health, food, and saturation levels.
 - **get_active_effects** — List active potion effects with duration and amplifier.
 
+## Flow Control
+- **end_loop** — Finish the current reasoning loop. Call this when you are completely done with all actions and messages for the current user request. **Required** to end a turn.
+
 ## Utility
 - **list_tools** — List all available tools and their descriptions.

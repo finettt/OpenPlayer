@@ -24,7 +24,7 @@ function registerTools(registry, config) {
     name: 'send_message',
     description:
       'Send a message to the game chat. MUST use this to be heard by players. ' +
-      'No more than 1-2 sentences.',
+      'No more than 1-2 sentences. This does NOT end the reasoning loop.',
     parameters: {
       type: 'object',
       properties: {
@@ -32,13 +32,23 @@ function registerTools(registry, config) {
       },
       required: ['message'],
     },
-    final: true,
     async execute(args, ctx) {
       if (!args.message || !args.message.trim()) {
         return 'Error: empty message not sent.';
       }
       await ctx.sendChat(args.message);
       return 'Message sent to chat.';
+    },
+  });
+
+  registry.register({
+    name: 'end_loop',
+    description:
+      'Finish the current reasoning loop. Call this only when you are completely done with all actions and messages for the current user request.',
+    parameters: { type: 'object', properties: {} },
+    final: true,
+    async execute() {
+      return 'Loop ended.';
     },
   });
 
