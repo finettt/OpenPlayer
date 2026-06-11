@@ -10,7 +10,10 @@
 - **get_surroundings** — Text summary: position, health, time, nearby players/mobs.
 
 ## Movement
-- **go_to(x, y?, z)** — Navigate to coordinates using pathfinding. Y is optional (uses current height).
+- **go_to(x, y?, z)** — Navigate near coordinates using pathfinding. Gets within 2-3 blocks of target. Y is optional (uses current height).
+- **go_to_y(y)** — Navigate to a specific Y level (height). Use for ascending/descending. Range: 1-319.
+- **approach(x, y?, z)** — Navigate adjacent to a specific block. Use for chests, crafting tables, doors, levers. Y is optional.
+- **find_block(type, radius?)** — Find nearest block of a type in loaded chunks. Returns coordinates. Default radius: 50 blocks.
 - **move(direction, duration)** — Move forward/backward/left/right for N seconds (0.5–5s).
 - **jump** — Jump once. Useful for obstacles or gaps.
 
