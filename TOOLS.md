@@ -22,3 +22,23 @@
 - **cancel_follow** — Stop following a player.
 - **lock_view(username)** — Continuously look at a player. Use cancel_lock_view to stop.
 - **cancel_lock_view** — Stop locking your view on a player.
+
+## Crafting & Smelting
+- **create_workbench** — Craft a crafting table from 4 planks and place it nearby. Needed for 3×3 recipes.
+- **craft(item, count?)** — Craft an item by name (e.g. oak_planks, stick, wooden_pickaxe). For 3×3 recipes, must be near a crafting table. Count defaults to 1.
+- **smelt(item, count?, fuel?)** — Smelt items in a nearby furnace (e.g. raw_iron, raw_beef, sand). Auto-selects fuel if not specified. Count defaults to 1.
+- **get_recipe(item)** — Look up crafting recipes for an item. Shows ingredients, whether a crafting table is needed, and checks if you have the materials.
+- **get_recipe(item)** — Look up crafting recipes for an item. Shows ingredients, whether a crafting table is needed, and checks if you have the materials.
+
+## Block Interaction
+- **break_block(x, y, z)** — Break a block at coordinates. Auto-selects best tool. Must be within ~6 blocks.
+- **place_block(x, y, z, face?)** — Place currently held block on a face of a reference block. Face defaults to up.
+- **interact(x, y, z)** — Right-click a block (doors, levers, chests, furnaces, beds, etc.). Must be within ~5 blocks.
+
+## Inventory & Status
+- **get_inventory** — List all items in inventory, hotbar, and armor slots.
+- **get_health_status** — Get current health, food, and saturation levels.
+- **get_active_effects** — List active potion effects with duration and amplifier.
+
+## Utility
+- **list_tools** — List all available tools and their descriptions.
