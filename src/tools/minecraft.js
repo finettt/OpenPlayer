@@ -155,13 +155,13 @@ function registerTools(registry, config) {
 
       try {
         bot.pathfinder.setMovements(new Movements(bot));
-        bot.pathfinder.setGoal(new goals.GoalBlock(args.x, currentY, args.z), true);
+        bot.pathfinder.setGoal(new goals.GoalNear(args.x, currentY, args.z, 2), true);
 
         const timeout = 30000;
         const started = Date.now();
         while (Date.now() - started < timeout) {
           const dist = bot.entity.position.distanceTo(target);
-          if (dist < 2) {
+          if (dist < 3) {
             bot.pathfinder.setGoal(null);
             const pos = bot.entity.position;
             return `Arrived at x=${Math.round(pos.x)}, y=${Math.round(pos.y)}, z=${Math.round(pos.z)}.`;
@@ -280,6 +280,158 @@ function registerTools(registry, config) {
 
       bot.pathfinder.setGoal(null);
       return `Stopped following ${args.username} after ${args.duration ?? 30}s.`;
+    },
+  });
+
+  // --- New pathfinder tools ---
+
+  registry.register({
+    name: 'go_to_y',
+    description:
+      'Navigate to a specific Y level (height). ' +
+      'Use for going up mountains, down caves, or to bedrock/sky limit. ' +
+      'Pathfinder will find the closest reachable Y at any X/Z.',
+    parameters: {
+      type: 'object',
+      properties: {
+        y: { type: 'number', description: 'Target Y level (height). Min: 1, Max: 319.' },
+      },
+      required: ['y'],
+    },
+    async execute(args, ctx) {
+      const bot = ctx.bot;
+      const targetY = Math.min(Math.max(args.y, 1), 319);
+
+      try {
+        bot.pathfinder.setMovements(new Movements(bot));
+        bot.pathfinder.setGoal(new goals.GoalY(targetY), true);
+
+        const timeout = 45000;
+        const started = Date.now();
+        while (Date.now() - started < timeout) {
+          const currentY = Math.round(bot.entity.position.y);
+          if (Math.abs(currentY - targetY) <= 1) {
+            bot.pathfinder.setGoal(null);
+            const pos = bot.entity.position;
+            return `Reached Y=${currentY} at x=${Math.round(pos.x)}, z=${Math.round(pos.z)}.`;
+          }
+          await new Promise((r) => setTimeout(r, 500));
+        }
+
+        bot.pathfinder.setGoal(null);
+        const pos = bot.entity.position;
+        return `Stopped at Y=${Math.round(pos.y)}. Could not reach Y=${targetY} (obstacle or timeout).`;
+      } catch (err) {
+        bot.pathfinder.setGoal(null);
+        return `Navigation failed: ${err.message}`;
+      }
+    },
+  });
+
+  registry.register({
+    name: 'approach',
+    description:
+      'Navigate adjacent to a specific block. ' +
+      'Use for chests, crafting tables, doors, furnaces, levers — anything you need to interact with.',
+    parameters: {
+      type: 'object',
+      properties: {
+        x: { type: 'number', description: 'Block X coordinate.' },
+        y: { type: 'number', description: 'Block Y coordinate (optional, uses current Y).' },
+        z: { type: 'number', description: 'Block Z coordinate.' },
+      },
+      required: ['x', 'z'],
+    },
+    async execute(args, ctx) {
+      const bot = ctx.bot;
+      const blockY = args.y ?? Math.round(bot.entity.position.y);
+
+      try {
+        bot.pathfinder.setMovements(new Movements(bot));
+        bot.pathfinder.setGoal(new goals.GoalGetToBlock(args.x, blockY, args.z), true);
+
+        const timeout = 30000;
+        const started = Date.now();
+        while (Date.now() - started < timeout) {
+          const pos = bot.entity.position;
+          const dist = Math.sqrt(
+            Math.pow(pos.x - args.x, 2) +
+            Math.pow(pos.z - args.z, 2)
+          );
+          if (dist < 2.5) {
+            bot.pathfinder.setGoal(null);
+            return `Approached block at x=${args.x}, y=${blockY}, z=${args.z}. Ready to interact.`;
+          }
+          await new Promise((r) => setTimeout(r, 500));
+        }
+
+        bot.pathfinder.setGoal(null);
+        const pos = bot.entity.position;
+        return `Stopped at x=${Math.round(pos.x)}, z=${Math.round(pos.z)}. Could not approach target (obstacle or timeout).`;
+      } catch (err) {
+        bot.pathfinder.setGoal(null);
+        return `Navigation failed: ${err.message}`;
+      }
+    },
+  });
+
+  registry.register({
+    name: 'find_block',
+    description:
+      'Find the nearest block of a given type in loaded chunks. ' +
+      'Use to locate chests, ores, trees, doors, etc. near your current position.',
+    parameters: {
+      type: 'object',
+      properties: {
+        type: {
+          type: 'string',
+          description: 'Block type name (e.g. chest, oak_log, diamond_ore, stone_bricks).',
+        },
+        radius: {
+          type: 'number',
+          description: 'Search radius in blocks (10-100). Defaults to 50.',
+        },
+      },
+      required: ['type'],
+    },
+    async execute(args, ctx) {
+      const bot = ctx.bot;
+      const radius = Math.min(Math.max(args.radius ?? 50, 10), 100);
+      const pos = bot.entity.position;
+
+      const blockType = args.type.toLowerCase();
+      let nearest = null;
+      let nearestDist = Infinity;
+
+      // Search in a grid pattern for efficiency
+      const step = 2;
+      for (let x = -radius; x <= radius; x += step) {
+        for (let z = -radius; z <= radius; z += step) {
+          if (x * x + z * z > radius * radius) continue;
+
+          for (let y = -10; y <= 10; y += 2) {
+            const checkPos = vec3(
+              Math.round(pos.x + x),
+              Math.round(pos.y + y),
+              Math.round(pos.z + z)
+            );
+            const block = bot.blockAt(checkPos);
+            if (block && block.name.includes(blockType)) {
+              const dist = pos.distanceTo(checkPos);
+              if (dist < nearestDist) {
+                nearestDist = dist;
+                nearest = checkPos;
+              }
+            }
+          }
+        }
+      }
+
+      if (!nearest) {
+        return `No ${args.type} found within ${radius} blocks. Try increasing radius or moving closer.`;
+      }
+
+      return `Found ${args.type} at x=${nearest.x}, y=${nearest.y}, z=${nearest.z} (${Math.round(nearestDist)}m away). Use approach() to get there.`;
     },
   });
 
