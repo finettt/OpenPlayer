@@ -18,5 +18,7 @@
 - **jump** — Jump once. Useful for obstacles or gaps.
 
 ## Player Interaction
-- **follow_player(username, duration?, distance?)** — Follow a player using pathfinding. Defaults: 30s, 3 blocks distance.
-- **lock_view(username, duration?)** — Continuously look at a player. Defaults: 10s.
+- **follow_player(username, distance?)** — Start following a player continuously. Use cancel_follow to stop.
+- **cancel_follow** — Stop following a player.
+- **lock_view(username)** — Continuously look at a player. Use cancel_lock_view to stop.
+- **cancel_lock_view** — Stop locking your view on a player.
