@@ -735,6 +735,291 @@ function registerTools(registry, config) {
       return 'Unlocked view.';
     },
   });
+
+  // --- Crafting tools ---
+
+  registry.register({
+    name: 'create_workbench',
+    description:
+      'Craft and place a crafting table (workbench) near your current position. ' +
+      'Requires 4 planks in inventory. Use this before crafting tools/items that need a 3x3 grid.',
+    parameters: { type: 'object', properties: {} },
+    async execute(_args, ctx) {
+      const bot = ctx.bot;
+      const mcData = require('minecraft-data')(bot.version);
+
+      // Check if we have a crafting table already
+      const craftingTableItem = bot.inventory.items().find((i) => i.name === 'crafting_table');
+      if (!craftingTableItem) {
+        // Need to craft one from planks
+        const planks = bot.inventory.items().find((i) => i.name.includes('planks'));
+        if (!planks || planks.count < 4) {
+          return 'Error: need at least 4 planks to craft a crafting table. Gather wood first.';
+        }
+
+        const craftingTableType = mcData.itemsByName.crafting_table;
+        if (!craftingTableType) {
+          return 'Error: crafting_table not found in game data.';
+        }
+
+        // 2x2 recipe for crafting table (no table needed)
+        const recipes = bot.recipesFor(craftingTableType.id, null, 1, null);
+        if (recipes.length === 0) {
+          return 'Error: no recipe found for crafting table with current inventory.';
+        }
+
+        try {
+          await bot.craft(recipes[0], 1, null);
+        } catch (err) {
+          return `Failed to craft crafting table: ${err.message}`;
+        }
+      }
+
+      // Now place the crafting table
+      const tableItem = bot.inventory.items().find((i) => i.name === 'crafting_table');
+      if (!tableItem) {
+        return 'Error: crafting table not in inventory after crafting attempt.';
+      }
+
+      // Find a suitable spot to place (on ground near bot)
+      const pos = bot.entity.position;
+      const floorY = Math.floor(pos.y) - 1;
+      let placed = false;
+
+      for (const offset of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const checkPos = vec3(
+          Math.floor(pos.x) + offset[0],
+          floorY + 1,
+          Math.floor(pos.z) + offset[1]
+        );
+        const blockAbove = bot.blockAt(checkPos);
+        const blockBelow = bot.blockAt(checkPos.offset(0, -1, 0));
+
+        if (blockAbove && blockAbove.name === 'air' && blockBelow && blockBelow.name !== 'air') {
+          try {
+            await bot.equip(tableItem, 'hand');
+            await bot.placeBlock(blockBelow, vec3(0, 1, 0));
+            placed = true;
+            return `Placed crafting table at x=${checkPos.x}, y=${checkPos.y}, z=${checkPos.z}. Use approach() then craft() to use it.`;
+          } catch (err) {
+            // Try next position
+          }
+        }
+      }
+
+      if (!placed) {
+        return 'Could not find suitable spot to place crafting table. Clear some space around you.';
+      }
+      return 'Crafting table placed.';
+    },
+  });
+
+  registry.register({
+    name: 'craft',
+    description:
+      'Craft an item. For 3x3 recipes (tools, armor, etc.), you must be near a crafting table. ' +
+      'For 2x2 recipes (planks, sticks, torches), no table needed. ' +
+      'Returns error if missing materials or recipe not found.',
+    parameters: {
+      type: 'object',
+      properties: {
+        item: {
+          type: 'string',
+          description: 'Item name to craft (e.g. oak_planks, stick, wooden_pickaxe, furnace).',
+        },
+        count: {
+          type: 'number',
+          description: 'How many to craft (defaults to 1). May craft more if recipe yields multiple.',
+        },
+      },
+      required: ['item'],
+    },
+    async execute(args, ctx) {
+      const bot = ctx.bot;
+      const mcData = require('minecraft-data')(bot.version);
+      const count = args.count ?? 1;
+
+      const itemName = args.item.toLowerCase().replace(/ /g, '_');
+      const itemType = mcData.itemsByName[itemName];
+      if (!itemType) {
+        return `Error: unknown item "${args.item}". Check spelling (use underscores, e.g. wooden_pickaxe).`;
+      }
+
+      // Find nearby crafting table (within 4 blocks)
+      let craftingTable = null;
+      const pos = bot.entity.position;
+      for (let x = -4; x <= 4; x++) {
+        for (let y = -2; y <= 2; y++) {
+          for (let z = -4; z <= 4; z++) {
+            const block = bot.blockAt(pos.offset(x, y, z));
+            if (block && block.name === 'crafting_table') {
+              craftingTable = block;
+              break;
+            }
+          }
+          if (craftingTable) break;
+        }
+        if (craftingTable) break;
+      }
+
+      // Get recipes - try with crafting table first, then without
+      let recipes = bot.recipesFor(itemType.id, null, count, craftingTable);
+      if (recipes.length === 0 && craftingTable) {
+        // Maybe it's a 2x2 recipe, try without table
+        recipes = bot.recipesFor(itemType.id, null, count, null);
+      }
+      if (recipes.length === 0 && !craftingTable) {
+        // No table nearby and no 2x2 recipe found
+        return `Error: no recipe found for ${args.item}. Either missing materials or need a crafting table nearby.`;
+      }
+      if (recipes.length === 0) {
+        return `Error: no recipe found for ${args.item} with current inventory. Check materials.`;
+      }
+
+      // Use first available recipe
+      const recipe = recipes[0];
+      const useTable = recipe.requiresTable ? craftingTable : null;
+
+      try {
+        await bot.craft(recipe, count, useTable);
+        const crafted = bot.inventory.items().find((i) => i.name === itemName);
+        const newCount = crafted ? crafted.count : 0;
+        return `Crafted ${args.item}. Now have ${newCount}x ${args.item} in inventory.`;
+      } catch (err) {
+        return `Failed to craft ${args.item}: ${err.message}`;
+      }
+    },
+  });
+
+  registry.register({
+    name: 'smelt',
+    description:
+      'Smelt items in a furnace. Must be near a furnace. ' +
+      'Puts input items and fuel into furnace, waits for smelting to complete. ' +
+      'Use for ores, raw food, sand→glass, etc.',
+    parameters: {
+      type: 'object',
+      properties: {
+        item: {
+          type: 'string',
+          description: 'Item to smelt (e.g. raw_iron, raw_beef, cobblestone, sand).',
+        },
+        count: {
+          type: 'number',
+          description: 'How many to smelt (defaults to 1).',
+        },
+        fuel: {
+          type: 'string',
+          description: 'Fuel to use (e.g. coal, charcoal, planks). Defaults to any available fuel.',
+        },
+      },
+      required: ['item'],
+    },
+    async execute(args, ctx) {
+      const bot = ctx.bot;
+      const count = args.count ?? 1;
+      const itemName = args.item.toLowerCase().replace(/ /g, '_');
+
+      // Find nearby furnace
+      let furnaceBlock = null;
+      const pos = bot.entity.position;
+      for (let x = -4; x <= 4; x++) {
+        for (let y = -2; y <= 2; y++) {
+          for (let z = -4; z <= 4; z++) {
+            const block = bot.blockAt(pos.offset(x, y, z));
+            if (block && (block.name === 'furnace' || block.name === 'lit_furnace')) {
+              furnaceBlock = block;
+              break;
+            }
+          }
+          if (furnaceBlock) break;
+        }
+        if (furnaceBlock) break;
+      }
+
+      if (!furnaceBlock) {
+        return 'Error: no furnace found within 4 blocks. Craft and place a furnace first.';
+      }
+
+      // Check we have the item to smelt
+      const inputItem = bot.inventory.items().find((i) => i.name === itemName);
+      if (!inputItem || inputItem.count < count) {
+        const have = inputItem?.count ?? 0;
+        return `Error: need ${count}x ${args.item} but only have ${have}.`;
+      }
+
+      // Find fuel
+      const fuelTypes = ['coal', 'charcoal', 'oak_planks', 'spruce_planks', 'birch_planks',
+                         'jungle_planks', 'acacia_planks', 'dark_oak_planks', 'mangrove_planks',
+                         'cherry_planks', 'bamboo_planks', 'crimson_planks', 'warped_planks',
+                         'coal_block', 'lava_bucket', 'blaze_rod'];
+      let fuelItem = null;
+      if (args.fuel) {
+        const fuelName = args.fuel.toLowerCase().replace(/ /g, '_');
+        fuelItem = bot.inventory.items().find((i) => i.name === fuelName);
+        if (!fuelItem) {
+          return `Error: fuel "${args.fuel}" not found in inventory.`;
+        }
+      } else {
+        for (const f of fuelTypes) {
+          fuelItem = bot.inventory.items().find((i) => i.name === f);
+          if (fuelItem) break;
+        }
+      }
+
+      if (!fuelItem) {
+        return 'Error: no fuel found in inventory. Need coal, charcoal, planks, etc.';
+      }
+
+      // Open furnace and smelt
+      let furnace;
+      try {
+        furnace = await bot.openFurnace(furnaceBlock);
+      } catch (err) {
+        return `Failed to open furnace: ${err.message}`;
+      }
+
+      try {
+        // Put fuel in
+        const fuelNeeded = Math.ceil(count / 8); // Each coal smelts 8 items
+        const fuelToUse = Math.min(fuelNeeded, fuelItem.count);
+        await furnace.putFuel(fuelItem.type, null, fuelToUse);
+
+        // Put input items in
+        await furnace.putInput(inputItem.type, null, count);
+
+        // Wait for smelting (10 seconds per item, max 2 minutes)
+        const waitTime = Math.min(count * 10000 + 2000, 120000);
+        const started = Date.now();
+
+        while (Date.now() - started < waitTime) {
+          await new Promise((r) => setTimeout(r, 1000));
+          const output = furnace.outputItem();
+          if (output && output.count >= count) {
+            break;
+          }
+          // Check if furnace stopped (no fuel or input)
+          if (!furnace.inputItem() && !furnace.outputItem()) {
+            break;
+          }
+        }
+
+        // Take output
+        const output = furnace.outputItem();
+        if (output) {
+          await furnace.takeOutput();
+          furnace.close();
+          return `Smelted ${output.count}x ${output.name}. Check inventory.`;
+        }
+
+        furnace.close();
+        return `Smelting in progress. Items may still be cooking. Check furnace again later.`;
+      } catch (err) {
+        try { furnace.close(); } catch { /* ignore */ }
+        return `Smelting failed: ${err.message}`;
+      }
+    },
+  });
 }
 
 module.exports = { registerTools, makeChatSender };
