@@ -235,6 +235,96 @@ function registerTools(registry, config) {
       return 'Jumped.';
     },
   });
+
+  registry.register({
+    name: 'follow_player',
+    description:
+      'Follow a player by continuously pathfinding to them. ' +
+      'Stops after a duration or when player goes out of range.',
+    parameters: {
+      type: 'object',
+      properties: {
+        username: { type: 'string', description: 'Player username to follow.' },
+        duration: {
+          type: 'number',
+          description: 'How long to follow in seconds (5-60). Defaults to 30.',
+        },
+        distance: {
+          type: 'number',
+          description: 'Following distance in blocks (2-10). Defaults to 3.',
+        },
+      },
+      required: ['username'],
+    },
+    async execute(args, ctx) {
+      const bot = ctx.bot;
+      const duration = Math.min(Math.max(args.duration ?? 30, 5), 60) * 1000;
+      const distance = Math.min(Math.max(args.distance ?? 3, 2), 10);
+
+      const player = bot.players[args.username];
+      if (!player?.entity) {
+        return `Player ${args.username} not found nearby.`;
+      }
+
+      bot.pathfinder.setMovements(new Movements(bot));
+      bot.pathfinder.setGoal(new goals.GoalFollow(player.entity, distance), true);
+
+      const started = Date.now();
+      while (Date.now() - started < duration) {
+        if (!bot.players[args.username]?.entity) {
+          bot.pathfinder.setGoal(null);
+          return `Player ${args.username} went out of range. Stopped following.`;
+        }
+        await new Promise((r) => setTimeout(r, 500));
+      }
+
+      bot.pathfinder.setGoal(null);
+      return `Stopped following ${args.username} after ${args.duration ?? 30}s.`;
+    },
+  });
+
+  registry.register({
+    name: 'lock_view',
+    description:
+      'Lock your view on a player, continuously looking at them. ' +
+      'Useful for keeping eyes on someone while they show you something.',
+    parameters: {
+      type: 'object',
+      properties: {
+        username: { type: 'string', description: 'Player username to look at.' },
+        duration: {
+          type: 'number',
+          description: 'How long to lock view in seconds (2-30). Defaults to 10.',
+        },
+      },
+      required: ['username'],
+    },
+    async execute(args, ctx) {
+      const bot = ctx.bot;
+      const duration = Math.min(Math.max(args.duration ?? 10, 2), 30) * 1000;
+
+      const player = bot.players[args.username];
+      if (!player?.entity) {
+        return `Player ${args.username} not found nearby.`;
+      }
+
+      const started = Date.now();
+      while (Date.now() - started < duration) {
+        const entity = bot.players[args.username]?.entity;
+        if (!entity) {
+          return `Player ${args.username} went out of range. Unlocked view.`;
+        }
+        try {
+          await bot.lookAt(entity.position.offset(0, entity.height, 0));
+        } catch {
+          // lookAt may fail, continue trying
+        }
+        await new Promise((r) => setTimeout(r, 200));
+      }
+
+      return `Unlocked view from ${args.username} after ${args.duration ?? 10}s.`;
+    },
+  });
 }
 
 module.exports = { registerTools, makeChatSender };
