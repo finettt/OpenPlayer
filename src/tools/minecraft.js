@@ -239,16 +239,11 @@ function registerTools(registry, config) {
   registry.register({
     name: 'follow_player',
     description:
-      'Follow a player by continuously pathfinding to them. ' +
-      'Stops after a duration or when player goes out of range.',
+      'Start following a player continuously. Use cancel_follow to stop.',
     parameters: {
       type: 'object',
       properties: {
         username: { type: 'string', description: 'Player username to follow.' },
-        duration: {
-          type: 'number',
-          description: 'How long to follow in seconds (5-60). Defaults to 30.',
-        },
         distance: {
           type: 'number',
           description: 'Following distance in blocks (2-10). Defaults to 3.',
@@ -258,8 +253,14 @@ function registerTools(registry, config) {
     },
     async execute(args, ctx) {
       const bot = ctx.bot;
-      const duration = Math.min(Math.max(args.duration ?? 30, 5), 60) * 1000;
       const distance = Math.min(Math.max(args.distance ?? 3, 2), 10);
+
+      // Cancel any existing follow
+      if (bot._followInterval) {
+        clearInterval(bot._followInterval);
+        bot._followInterval = null;
+      }
+      bot.pathfinder.setGoal(null);
 
       const player = bot.players[args.username];
       if (!player?.entity) {
@@ -269,17 +270,35 @@ function registerTools(registry, config) {
       bot.pathfinder.setMovements(new Movements(bot));
       bot.pathfinder.setGoal(new goals.GoalFollow(player.entity, distance), true);
 
-      const started = Date.now();
-      while (Date.now() - started < duration) {
-        if (!bot.players[args.username]?.entity) {
+      bot._followInterval = setInterval(() => {
+        const entity = bot.players[args.username]?.entity;
+        if (!entity) {
+          clearInterval(bot._followInterval);
+          bot._followInterval = null;
           bot.pathfinder.setGoal(null);
-          return `Player ${args.username} went out of range. Stopped following.`;
+          bot.emit('chat', bot.username, `[bot] Player ${args.username} went out of range. Stopped following.`);
+          return;
         }
-        await new Promise((r) => setTimeout(r, 500));
-      }
+        // Update goal to track player's new position
+        bot.pathfinder.setGoal(new goals.GoalFollow(entity, distance), true);
+      }, 500);
 
+      return `Now following ${args.username}. Use cancel_follow to stop.`;
+    },
+  });
+
+  registry.register({
+    name: 'cancel_follow',
+    description: 'Stop following a player.',
+    parameters: { type: 'object', properties: {} },
+    async execute(_args, ctx) {
+      const bot = ctx.bot;
+      if (bot._followInterval) {
+        clearInterval(bot._followInterval);
+        bot._followInterval = null;
+      }
       bot.pathfinder.setGoal(null);
-      return `Stopped following ${args.username} after ${args.duration ?? 30}s.`;
+      return 'Stopped following.';
     },
   });
 
@@ -438,43 +457,57 @@ function registerTools(registry, config) {
   registry.register({
     name: 'lock_view',
     description:
-      'Lock your view on a player, continuously looking at them. ' +
-      'Useful for keeping eyes on someone while they show you something.',
+      'Lock your view on a player, continuously looking at them. Use cancel_lock_view to stop.',
     parameters: {
       type: 'object',
       properties: {
         username: { type: 'string', description: 'Player username to look at.' },
-        duration: {
-          type: 'number',
-          description: 'How long to lock view in seconds (2-30). Defaults to 10.',
-        },
       },
       required: ['username'],
     },
     async execute(args, ctx) {
       const bot = ctx.bot;
-      const duration = Math.min(Math.max(args.duration ?? 10, 2), 30) * 1000;
+
+      // Cancel any existing lock_view
+      if (bot._lockViewInterval) {
+        clearInterval(bot._lockViewInterval);
+        bot._lockViewInterval = null;
+      }
 
       const player = bot.players[args.username];
       if (!player?.entity) {
         return `Player ${args.username} not found nearby.`;
       }
 
-      const started = Date.now();
-      while (Date.now() - started < duration) {
+      bot._lockViewInterval = setInterval(() => {
         const entity = bot.players[args.username]?.entity;
         if (!entity) {
-          return `Player ${args.username} went out of range. Unlocked view.`;
+          clearInterval(bot._lockViewInterval);
+          bot._lockViewInterval = null;
+          return;
         }
         try {
-          await bot.lookAt(entity.position.offset(0, entity.height, 0));
+          bot.lookAt(entity.position.offset(0, entity.height, 0));
         } catch {
           // lookAt may fail, continue trying
         }
-        await new Promise((r) => setTimeout(r, 200));
-      }
+      }, 200);
 
-      return `Unlocked view from ${args.username} after ${args.duration ?? 10}s.`;
+      return `Now locking view on ${args.username}. Use cancel_lock_view to stop.`;
+    },
+  });
+
+  registry.register({
+    name: 'cancel_lock_view',
+    description: 'Stop locking your view on a player.',
+    parameters: { type: 'object', properties: {} },
+    async execute(_args, ctx) {
+      const bot = ctx.bot;
+      if (bot._lockViewInterval) {
+        clearInterval(bot._lockViewInterval);
+        bot._lockViewInterval = null;
+      }
+      return 'Unlocked view.';
     },
   });
 }
