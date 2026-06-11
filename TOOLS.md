@@ -13,3 +13,7 @@
 - **go_to(x, y?, z)** — Navigate to coordinates using pathfinding. Y is optional (uses current height).
 - **move(direction, duration)** — Move forward/backward/left/right for N seconds (0.5–5s).
 - **jump** — Jump once. Useful for obstacles or gaps.
+
+## Player Interaction
+- **follow_player(username, duration?, distance?)** — Follow a player using pathfinding. Defaults: 30s, 3 blocks distance.
+- **lock_view(username, duration?)** — Continuously look at a player. Defaults: 10s.
