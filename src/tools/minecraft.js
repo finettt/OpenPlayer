@@ -132,6 +132,98 @@ function registerTools(registry, config) {
     },
   });
 
+  // --- Inventory & status tools ---
+
+  registry.register({
+    name: 'get_inventory',
+    description:
+      'List all items in your inventory, hotbar, and armor slots. ' +
+      'Use to check what you have before crafting, fighting, or building.',
+    parameters: { type: 'object', properties: {} },
+    async execute(_args, ctx) {
+      const bot = ctx.bot;
+      const slots = bot.inventory.slots;
+      const lines = [];
+
+      // Armor slots (head → feet)
+      const armorSlots = bot.supportFeature('doesntHaveOffHandSlot')
+        ? [8, 7, 6, 5]
+        : [45, 8, 7, 6, 5]; // includes offhand
+      const armorNames = ['offhand', 'helmet', 'chestplate', 'leggings', 'boots'];
+      const equipped = [];
+      for (let i = 0; i < armorSlots.length; i++) {
+        const item = slots[armorSlots[i]];
+        if (item) equipped.push(`${armorNames[i]}: ${item.name} (x${item.count})`);
+      }
+      if (equipped.length) lines.push(`Armor: ${equipped.join(', ')}`);
+      else lines.push('Armor: none');
+
+      // Main inventory (slots 9-35)
+      const inventory = [];
+      for (let i = 9; i <= 35; i++) {
+        const item = slots[i];
+        if (item) inventory.push(`${item.name} x${item.count}`);
+      }
+      lines.push(`Inventory (${inventory.length}/27 slots): ${inventory.length ? inventory.join(', ') : 'empty'}`);
+
+      // Hotbar (slots 36-44)
+      const hotbar = [];
+      for (let i = 36; i <= 44; i++) {
+        const item = slots[i];
+        const slot = i - 35;
+        const held = i === bot.QUICK_BAR_START + bot.quickBarSlot ? ' [held]' : '';
+        if (item) hotbar.push(`${slot}: ${item.name} x${item.count}${held}`);
+      }
+      lines.push(`Hotbar: ${hotbar.length ? hotbar.join(', ') : 'empty'}`);
+
+      return lines.join('\n');
+    },
+  });
+
+  registry.register({
+    name: 'get_health_status',
+    description:
+      'Get current health, food level, and saturation. ' +
+      'Use to check if you need to eat or heal.',
+    parameters: { type: 'object', properties: {} },
+    async execute(_args, ctx) {
+      const bot = ctx.bot;
+      return [
+        `Health: ${bot.health}/20 (${Math.round(bot.health / 2)} hearts)`,
+        `Food: ${bot.food}/20`,
+        `Saturation: ${bot.foodSaturation?.toFixed(1) ?? 'unknown'}`,
+      ].join('\n');
+    },
+  });
+
+  registry.register({
+    name: 'get_active_effects',
+    description:
+      'List active potion effects with duration and amplifier. ' +
+      'Use to track buffs/debuffs during combat or exploration.',
+    parameters: { type: 'object', properties: {} },
+    async execute(_args, ctx) {
+      const bot = ctx.bot;
+      const effects = bot.entity.effects;
+      if (!effects || Object.keys(effects).length === 0) {
+        return 'No active potion effects.';
+      }
+
+      const mcData = require('minecraft-data');
+      const effectsMap = mcData(bot.version)?.effects || {};
+
+      const lines = [];
+      for (const id of Object.keys(effects)) {
+        const eff = effects[id];
+        const info = effectsMap[id] || { name: `Unknown(${id})`, type: '?' };
+        const amp = eff.amplifier > 0 ? ` ${'Ⅰ'.repeat(eff.amplifier + 1)}` : '';
+        const secs = Math.ceil(eff.duration / 20);
+        lines.push(`${info.name}${amp}: ${secs}s (${info.type})`);
+      }
+      return lines.join('\n');
+    },
+  });
+
   // --- Movement tools ---
 
   registry.register({
