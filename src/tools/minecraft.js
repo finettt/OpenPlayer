@@ -940,7 +940,7 @@ function registerTools(registry, config) {
       while (Date.now() - started < timeout) {
         // Find the closest item entity within radius
         const items = Object.values(bot.entities).filter((e) => {
-          if (e.entityType === undefined && e.objectType === undefined) return false;
+          if (!e?.position) return false;
           // mineflayer uses e.name === 'item' for dropped items
           if (e.name !== 'item' && e.displayName !== 'Item') return false;
           const dist = e.position.distanceTo(bot.entity.position);
