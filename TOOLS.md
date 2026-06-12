@@ -18,6 +18,7 @@
 - **jump** — Jump once. Useful for obstacles or gaps.
 
 ## Player Interaction
+- **goto_player(username, distance?, timeout?)** — Navigate to a player and stop on arrival. One-shot move (not continuous). Distance defaults to 2 blocks, timeout defaults to 30s.
 - **follow_player(username, distance?)** — Start following a player continuously. Use cancel_follow to stop.
 - **cancel_follow** — Stop following a player.
 - **lock_view(username)** — Continuously look at a player. Use cancel_lock_view to stop.
@@ -33,6 +34,9 @@
 - **break_block(x, y, z)** — Break a block at coordinates. Auto-selects best tool. Must be within ~6 blocks.
 - **place_block(x, y, z, face?)** — Place currently held block on a face of a reference block. Face defaults to up.
 - **interact(x, y, z)** — Right-click a block (doors, levers, chests, furnaces, beds, etc.). Must be within ~5 blocks.
+
+## Item Collection
+- **collect_drops(radius?, timeout?)** — Collect dropped items on the ground within radius. Walks to each item entity and picks it up. Radius defaults to 16 blocks, timeout defaults to 30s. Reports what was collected, unreachable items, and remaining drops.
 
 ## Inventory & Status
 - **drop_item(item, count?, username?)** — Drop items from inventory by name. Count defaults to all matching items. Faces the target player first if provided or if exactly one nearby player is present.
