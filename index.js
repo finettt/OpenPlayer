@@ -2,6 +2,7 @@
 
 const mineflayer = require('mineflayer');
 const pathfinder = require('mineflayer-pathfinder').pathfinder;
+const pvp = require('mineflayer-pvp').plugin;
 
 const config = require('./config');
 const { Logger } = require('./src/logger');
@@ -9,6 +10,7 @@ const { LLMClient } = require('./src/llm');
 const { SessionManager } = require('./src/session');
 const { ToolRegistry } = require('./src/tools/registry');
 const { registerTools, makeChatSender } = require('./src/tools');
+const { enableDefence } = require('./src/tools/defence_mode');
 const { Camera } = require('./src/camera');
 const { CommandQueue } = require('./src/queue');
 const { Agent } = require('./src/agent');
@@ -38,6 +40,7 @@ function createBot() {
     username: config.bot.username,
   });
   bot.loadPlugin(pathfinder);
+  bot.loadPlugin(pvp);
 
   const sendChat = makeChatSender(bot, config, log.child('chat'));
 
@@ -103,6 +106,46 @@ function createBot() {
         content: `[SYSTEM]: WARNING! Your health is critically low: ${bot.health}/20.`,
       });
     }
+  });
+
+  bot.on('entityHurt', (entity) => {
+    // Only care if the bot itself is hurt
+    if (entity !== bot.entity) return;
+
+    // Find nearest hostile to report who is likely attacking
+    const pos = bot.entity.position;
+    let attacker = null;
+    let attackerDist = Infinity;
+    for (const e of Object.values(bot.entities)) {
+      if (e.type !== 'hostile' || !e.position || e === bot.entity) continue;
+      const d = e.position.distanceTo(pos);
+      if (d < attackerDist) {
+        attackerDist = d;
+        attacker = e;
+      }
+    }
+
+    // Auto-enable defence mode if not already active — reacts instantly
+    // without waiting for the LLM to decide. The agent can disable later
+    // with defence_mode(enabled=false).
+    if (bot.pvp && !bot._defenceMode?.active) {
+      try {
+        enableDefence(bot);
+        log.info('Defence mode auto-enabled due to damage');
+      } catch (err) {
+        log.error(`Auto-defence enable failed: ${err.message}`);
+      }
+    }
+
+    // Notify the agent so it's aware of the situation
+    const attackerName = attacker
+      ? `${attacker.name || attacker.displayName || 'unknown'} (${Math.round(attackerDist)}m away)`
+      : 'unknown source';
+    queue.push({
+      type: 'event',
+      source: 'damage',
+      content: `[SYSTEM]: You took damage from ${attackerName}! Health: ${bot.health}/20. Defence mode has been auto-enabled. Use defence_mode(enabled=false) to stop fighting.`,
+    });
   });
 
   bot.on('kicked', (reason) => log.warn(`Kicked: ${JSON.stringify(reason)}`));

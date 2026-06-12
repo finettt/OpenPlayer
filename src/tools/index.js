@@ -44,6 +44,8 @@ const approach = require('./approach')(deps);
 const gotoPlayer = require('./goto_player')(deps);
 const collectDrops = require('./collect_drops')(deps);
 const mineBlockType = require('./mine_block_type')(deps);
+const attackEntity = require('./attack_entity')(deps);
+const defenceMode = require('./defence_mode')(deps);
 
 const ALL_TOOLS = [
   sendMessage,
@@ -79,6 +81,8 @@ const ALL_TOOLS = [
   smelt,
   getRecipe,
   equip,
+  attackEntity,
+  defenceMode,
 ];
 
 function registerTools(registry, config) {
