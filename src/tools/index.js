@@ -28,6 +28,7 @@ const craft = require('./craft')();
 const smelt = require('./smelt')();
 const getRecipe = require('./get_recipe')();
 const equip = require('./equip')();
+const holdItem = require('./hold_item')();
 
 // --- Tools requiring vec3 ---
 const breakBlock = require('./break_block')(deps);
@@ -81,6 +82,7 @@ const ALL_TOOLS = [
   smelt,
   getRecipe,
   equip,
+  holdItem,
   attackEntity,
   defenceMode,
 ];
