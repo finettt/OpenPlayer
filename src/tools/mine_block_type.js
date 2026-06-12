@@ -136,7 +136,10 @@ module.exports = function ({ vec3, goals, Movements }) {
         const harvestTools = sampleBlockEntry.harvestTools;
         const requiredToolIds = Object.keys(harvestTools).map(Number);
         const invItems = bot.inventory.items();
-        const hasAny = invItems.some(item => requiredToolIds.includes(item.id));
+        const toolTypes = extractToolTypes(harvestTools, mcData); // ['pickaxe']
+        const hasAny = invItems.some(item =>
+          toolTypes.some(toolType => item.name.includes(toolType))
+        );
         if (!hasAny) {
           const toolTypes = extractToolTypes(harvestTools, mcData);
           const available = invItems.map(i => i.name).join(', ') || 'empty inventory';

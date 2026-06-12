@@ -35,12 +35,12 @@ module.exports = function ({ vec3 }) {
       }
 
       const faceMap = {
-        up: vec3(0, 1, 0),
-        down: vec3(0, -1, 0),
-        north: vec3(0, 0, -1),
-        south: vec3(0, 0, 1),
-        east: vec3(1, 0, 0),
-        west: vec3(-1, 0, 0),
+        up:    vec3(0,  1,  0),
+        down:  vec3(0, -1,  0),
+        north: vec3(0,  0, -1),
+        south: vec3(0,  0,  1),
+        east:  vec3(1,  0,  0),
+        west:  vec3(-1, 0,  0),
       };
       const face = faceMap[args.face ?? 'up'] || vec3(0, 1, 0);
 
@@ -53,10 +53,17 @@ module.exports = function ({ vec3 }) {
 
       try {
         await bot.placeBlock(block, face);
-        return `Placed ${heldItem.name} at x=${targetPos.x}, y=${targetPos.y}, z=${targetPos.z}.`;
       } catch (err) {
-        return `Failed to place block: ${err.message}`;
+        // Some servers don't fire blockUpdate in time — verify placement directly
+        await new Promise(r => setTimeout(r, 300));
+        const check = bot.blockAt(targetPos);
+        if (!check || check.name === 'air') {
+          return `Failed to place block: ${err.message}`;
+        }
+        // Block is present despite the event timeout — treat as success
       }
+
+      return `Placed ${heldItem.name} at x=${targetPos.x}, y=${targetPos.y}, z=${targetPos.z}.`;
     },
   };
 };

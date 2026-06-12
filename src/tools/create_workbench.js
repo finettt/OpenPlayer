@@ -25,7 +25,6 @@ module.exports = function ({ vec3 }) {
           return 'Error: crafting_table not found in game data.';
         }
 
-        // 2x2 recipe for crafting table (no table needed)
         const recipes = bot.recipesFor(craftingTableType.id, null, 1, null);
         if (recipes.length === 0) {
           return 'Error: no recipe found for crafting table with current inventory.';
@@ -38,16 +37,14 @@ module.exports = function ({ vec3 }) {
         }
       }
 
-      // Now place the crafting table
       const tableItem = bot.inventory.items().find((i) => i.name === 'crafting_table');
       if (!tableItem) {
         return 'Error: crafting table not in inventory after crafting attempt.';
       }
 
-      // Find a suitable spot to place (on ground near bot)
+      // Find a suitable adjacent spot: air block with a solid block below
       const pos = bot.entity.position;
       const floorY = Math.floor(pos.y) - 1;
-      let placed = false;
 
       for (const offset of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
         const checkPos = vec3(
@@ -58,22 +55,27 @@ module.exports = function ({ vec3 }) {
         const blockAbove = bot.blockAt(checkPos);
         const blockBelow = bot.blockAt(checkPos.offset(0, -1, 0));
 
-        if (blockAbove && blockAbove.name === 'air' && blockBelow && blockBelow.name !== 'air') {
+        if (
+          blockAbove && blockAbove.name === 'air' &&
+          blockBelow && blockBelow.name !== 'air'
+        ) {
           try {
             await bot.equip(tableItem, 'hand');
             await bot.placeBlock(blockBelow, vec3(0, 1, 0));
-            placed = true;
             return `Placed crafting table at x=${checkPos.x}, y=${checkPos.y}, z=${checkPos.z}. Use approach() then craft() to use it.`;
           } catch (err) {
-            // Try next position
+            // Server may not fire blockUpdate in time — verify directly
+            await new Promise(r => setTimeout(r, 300));
+            const check = bot.blockAt(checkPos);
+            if (check && check.name === 'crafting_table') {
+              return `Placed crafting table at x=${checkPos.x}, y=${checkPos.y}, z=${checkPos.z}. Use approach() then craft() to use it.`;
+            }
+            // Not placed — try next offset
           }
         }
       }
 
-      if (!placed) {
-        return 'Could not find suitable spot to place crafting table. Clear some space around you.';
-      }
-      return 'Crafting table placed.';
+      return 'Could not find suitable spot to place crafting table. Clear some space around you.';
     },
   };
 };

@@ -44,8 +44,11 @@ module.exports = function () {
         return `No block type matching "${args.type}" found in registry. Check the block name.`;
       }
 
-      // Use mineflayer's built-in findBlocks — searches loaded chunks via block
-      // state index instead of brute-force grid scanning
+      // Build matched names array for name-based comparison (avoids block.id vs block.type confusion)
+      const matchedNames = Object.entries(mcData.blocksByName)
+        .filter(([, b]) => matchingIds.includes(b.id))
+        .map(([n]) => n);
+
       const results = bot.findBlocks({
         matching: (block) => matchedNames.includes(block.name),
         maxDistance: radius,
