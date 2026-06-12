@@ -29,7 +29,7 @@
 - **create_workbench** — Craft a crafting table from 4 planks and place it nearby. Needed for 3×3 recipes.
 - **craft(item, count?)** — Craft an item by name (e.g. oak_planks, stick, wooden_pickaxe). For 3×3 recipes, must be near a crafting table. Count defaults to 1.
 - **smelt(item, count?, fuel?)** — Smelt items in a nearby furnace (e.g. raw_iron, raw_beef, sand). Auto-selects fuel if not specified. Count defaults to 1.
-- **get_recipe(item)** — Look up crafting recipes for an item. Shows ingredients, whether a crafting table is needed, and checks if you have the materials.
+- **get_recipe(item, depth?)** — Look up crafting recipes for an item. Shows ingredients, whether a crafting table is needed, and checks if you have the materials. Depth controls recipe recursion: depth=1 (default) shows direct ingredients only; depth=2+ resolves sub-ingredients recursively. For example, `get_recipe(wooden_pickaxe, depth=3)` shows you need 2 oak_log total (3 planks→1 log, 2 sticks→2 planks→1 log). At depth=2 it would show 1 oak_log + 2 oak_planks (sticks resolved but planks not fully).
 
 ## Block Interaction
 - **break_block(x, y, z)** — Break a block at coordinates. Auto-selects best tool. Must be within ~6 blocks.
