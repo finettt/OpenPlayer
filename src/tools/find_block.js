@@ -47,7 +47,7 @@ module.exports = function () {
       // Use mineflayer's built-in findBlocks — searches loaded chunks via block
       // state index instead of brute-force grid scanning
       const results = bot.findBlocks({
-        matching: matchingIds.length === 1 ? matchingIds[0] : matchingIds,
+        matching: (block) => matchedNames.includes(block.name),
         maxDistance: radius,
         count: 1,
       });

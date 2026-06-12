@@ -33,6 +33,7 @@
 
 ## Block Interaction
 - **break_block(x, y, z)** — Break a block at coordinates. Auto-selects best tool. Must be within ~6 blocks.
+- **mine_block_type(type, count?, radius?, timeout?)** — Gather N blocks of a given type. Automatically finds, navigates to, breaks, and collects blocks. Use for resource gathering (wood, stone, coal, iron_ore, etc.). Partial names work (e.g. "log" matches oak_log, birch_log). Checks if you have the required harvest tool before starting (e.g. pickaxe for stone) and auto-equips the best tool for each break. Count defaults to 1 (1-64), radius defaults to 50 (10-128), timeout defaults to 120s (30-300). Reports gathered count and stopping reason (count reached, no more blocks, timeout, too many unreachable, or too many break failures).
 - **place_block(x, y, z, face?)** — Place currently held block on a face of a reference block. Face defaults to up.
 - **interact(x, y, z)** — Right-click a block (doors, levers, chests, furnaces, beds, etc.). Must be within ~5 blocks.
 

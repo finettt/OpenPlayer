@@ -43,6 +43,7 @@ const goToY = require('./go_to_y')(deps);
 const approach = require('./approach')(deps);
 const gotoPlayer = require('./goto_player')(deps);
 const collectDrops = require('./collect_drops')(deps);
+const mineBlockType = require('./mine_block_type')(deps);
 
 const ALL_TOOLS = [
   sendMessage,
@@ -72,6 +73,7 @@ const ALL_TOOLS = [
   cancelLockView,
   gotoPlayer,
   collectDrops,
+  mineBlockType,
   createWorkbench,
   craft,
   smelt,
