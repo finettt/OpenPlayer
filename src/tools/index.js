@@ -32,6 +32,7 @@ const breakBlock = require('./break_block')(deps);
 const placeBlock = require('./place_block')(deps);
 const interact = require('./interact')(deps);
 const findBlock = require('./find_block')(deps);
+const scanArea = require('./scan_area')(deps);
 const createWorkbench = require('./create_workbench')(deps);
 
 // --- Tools requiring vec3 + goals + Movements ---
@@ -65,6 +66,7 @@ const ALL_TOOLS = [
   goToY,
   approach,
   findBlock,
+  scanArea,
   lockView,
   cancelLockView,
   gotoPlayer,

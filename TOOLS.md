@@ -8,6 +8,7 @@
 - **take_screenshot** — Capture what is in front of you. Returns an image.
 - **look_at_player(username)** — Turn to face a player by name.
 - **get_surroundings** — Text summary: position, health, time, nearby players/mobs.
+- **scan_area(radius?, filter?)** — Scan nearby blocks and entities for a richer situational summary. Reports counts and nearest positions of ores, hazards, resources, water, wood, portals, spawners, and mob types. Radius defaults to 32 (4-64). Filter by category: hazards, ores, resources, water, wood, portals, spawners, mobs, all (default).
 
 ## Movement
 - **go_to(x, y?, z)** — Navigate near coordinates using pathfinding. Gets within 2-3 blocks of target. Y is optional (uses current height).
