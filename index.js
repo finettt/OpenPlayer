@@ -54,6 +54,7 @@ function createBot() {
   bot.once('spawn', async () => {
     reconnectAttempts = 0;
     log.info('Bot joined the server!');
+    bot.addChatPattern('player_chat', /^<(.+?)> (.+)$/, { parse: true });
     try {
       await camera.init(bot);
     } catch (err) {
@@ -67,8 +68,10 @@ function createBot() {
     log.info('Bot ready and waiting for messages...');
   });
 
-  bot.on('chat', (username, message) => {
-    if (username === bot.username || !username) return;
+  bot.on('chat:player_chat', (matches) => {
+    const username = matches[0];
+    const message = matches[1];
+    if (username === bot.username) return;
     log.info(`[Chat] ${username}: ${message}`);
     queue.push({
       type: 'chat',
