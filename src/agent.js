@@ -14,6 +14,14 @@ class Agent {
   }
 
   async run(batch) {
+    const batchSummary = batch.map((event, index) => ({
+      index: index + 1,
+      type: event.type,
+      source: event.source ?? 'unknown',
+      content: String(event.content).slice(0, 160),
+    }));
+    this.log.info(`Run started: ${JSON.stringify(batchSummary)}`);
+
     for (const event of batch) {
       this.session.push({ role: 'user', content: event.content });
     }
@@ -44,6 +52,11 @@ class Agent {
       this.session.push(responseMessage);
 
       const toolCalls = responseMessage.tool_calls ?? [];
+      this.log.info(
+        `Model returned ${toolCalls.length} tool call(s): ${
+          toolCalls.map((toolCall) => toolCall.function?.name ?? 'unknown').join(', ') || 'none'
+        }`
+      );
 
       if (toolCalls.length === 0) {
         this.log.warn('Model responded with plain text instead of using tools — sending reminder');
@@ -88,6 +101,7 @@ class Agent {
 
         if (result.ok && this.registry.tools.get(name)?.final) {
           isFinal = true;
+          this.log.info(`Final tool ${name} completed; ending current run after reasoning step ${iterations}`);
         }
       }
 

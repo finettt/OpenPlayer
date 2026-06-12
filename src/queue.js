@@ -13,11 +13,9 @@ class CommandQueue {
   }
 
   push(event) {
-    if (event.type === 'heartbeat' && (this.running || this.pending.length > 0)) {
-      this.log.debug('Heartbeat skipped: agent is busy');
-      return;
-    }
+    if (event.type === 'heartbeat' && (this.running || this.pending.length > 0)) return;
     this.pending.push(event);
+
     this._drain();
   }
 

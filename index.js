@@ -54,7 +54,6 @@ function createBot() {
   bot.once('spawn', async () => {
     reconnectAttempts = 0;
     log.info('Bot joined the server!');
-    bot.addChatPattern('player_chat', /^<(.+?)> (.+)$/, { parse: true });
     try {
       await camera.init(bot);
     } catch (err) {
@@ -68,13 +67,20 @@ function createBot() {
     log.info('Bot ready and waiting for messages...');
   });
 
-  bot.on('chat:player_chat', (matches) => {
-    const username = matches[0];
-    const message = matches[1];
-    if (username === bot.username) return;
+  bot.on('chat', (username, message, translate, jsonMsg, matches) => {
+    // Only process actual player-typed chat messages.
+    // System notifications (teleports, deaths, joins, etc.) use different
+    // translate keys (e.g. "chat.type.announcement") and must be ignored.
+    if (translate !== 'chat.type.text') {
+      return;
+    }
+
+    if (!username || username === bot.username) return;
+
     log.info(`[Chat] ${username}: ${message}`);
     queue.push({
       type: 'chat',
+      source: `chat username=${username}`,
       content: `[Chat] Player ${username} says: "${message}"`,
     });
   });
@@ -84,6 +90,7 @@ function createBot() {
     log.info(`[Whisper] ${username}: ${message}`);
     queue.push({
       type: 'chat',
+      source: `whisper username=${username}`,
       content: `[Private message] Player ${username} whispers: "${message}"`,
     });
   });
@@ -92,6 +99,7 @@ function createBot() {
     if (bot.health > 0 && bot.health <= 6) {
       queue.push({
         type: 'event',
+        source: 'health',
         content: `[SYSTEM]: WARNING! Your health is critically low: ${bot.health}/20.`,
       });
     }
@@ -138,6 +146,7 @@ function startHeartbeat() {
 
     queue.push({
       type: 'heartbeat',
+      source: 'heartbeat',
       content:
         '[SYSTEM HEARTBEAT]: Periodic check. Look around (get_surroundings or take_screenshot). ' +
         'If something interesting or dangerous is happening — tell players via send_message. ' +
