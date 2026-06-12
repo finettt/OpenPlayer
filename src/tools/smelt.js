@@ -30,22 +30,14 @@ module.exports = function () {
       const count = args.count ?? 1;
       const itemName = args.item.toLowerCase().replace(/ /g, '_');
 
-      // Find nearby furnace
-      let furnaceBlock = null;
-      const pos = bot.entity.position;
-      for (let x = -4; x <= 4; x++) {
-        for (let y = -2; y <= 2; y++) {
-          for (let z = -4; z <= 4; z++) {
-            const block = bot.blockAt(pos.offset(x, y, z));
-            if (block && (block.name === 'furnace' || block.name === 'lit_furnace')) {
-              furnaceBlock = block;
-              break;
-            }
-          }
-          if (furnaceBlock) break;
-        }
-        if (furnaceBlock) break;
-      }
+      // Find nearby furnace using mineflayer's built-in block finder
+      const mcData = require('minecraft-data')(bot.version);
+      const furnaceIds = [mcData.blocksByName.furnace?.id, mcData.blocksByName.lit_furnace?.id].filter(Boolean);
+      const furnaceBlock = (() => {
+        if (furnaceIds.length === 0) return null;
+        const found = bot.findBlocks({ matching: furnaceIds, maxDistance: 4, count: 1 });
+        return found.length > 0 ? bot.blockAt(found[0]) : null;
+      })();
 
       if (!furnaceBlock) {
         return 'Error: no furnace found within 4 blocks. Craft and place a furnace first.';

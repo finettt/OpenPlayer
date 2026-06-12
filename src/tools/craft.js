@@ -32,21 +32,12 @@ module.exports = function () {
         return `Error: unknown item "${args.item}". Check spelling (use underscores, e.g. wooden_pickaxe).`;
       }
 
-      // Find nearby crafting table (within 4 blocks)
+      // Find nearby crafting table using mineflayer's built-in block finder
+      const craftingTableBlockType = mcData.blocksByName.crafting_table;
       let craftingTable = null;
-      const pos = bot.entity.position;
-      for (let x = -4; x <= 4; x++) {
-        for (let y = -2; y <= 2; y++) {
-          for (let z = -4; z <= 4; z++) {
-            const block = bot.blockAt(pos.offset(x, y, z));
-            if (block && block.name === 'crafting_table') {
-              craftingTable = block;
-              break;
-            }
-          }
-          if (craftingTable) break;
-        }
-        if (craftingTable) break;
+      if (craftingTableBlockType) {
+        const found = bot.findBlocks({ matching: craftingTableBlockType.id, maxDistance: 4, count: 1 });
+        if (found.length > 0) craftingTable = bot.blockAt(found[0]);
       }
 
       // Get recipes - try with crafting table first, then without

@@ -9,6 +9,7 @@ const deps = { vec3, goals, Movements };
 // --- Tools requiring no deps ---
 const sendMessage = require('./send_message')(deps);
 const endLoop = require('./end_loop')();
+const findBlock = require('./find_block')();
 const takeScreenshot = require('./take_screenshot')();
 const lookAtPlayer = require('./look_at_player')();
 const getSurroundings = require('./get_surroundings')();
@@ -31,7 +32,6 @@ const getRecipe = require('./get_recipe')();
 const breakBlock = require('./break_block')(deps);
 const placeBlock = require('./place_block')(deps);
 const interact = require('./interact')(deps);
-const findBlock = require('./find_block')(deps);
 const scanArea = require('./scan_area')(deps);
 const createWorkbench = require('./create_workbench')(deps);
 

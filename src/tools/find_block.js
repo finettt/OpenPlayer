@@ -1,11 +1,12 @@
 'use strict';
 
-module.exports = function ({ vec3 }) {
+module.exports = function () {
   return {
     name: 'find_block',
     description:
       'Find the nearest block of a given type in loaded chunks. ' +
-      'Use to locate chests, ores, trees, doors, etc. near your current position.',
+      'Use to locate chests, ores, trees, doors, etc. near your current position. ' +
+      'Supports partial name matching (e.g. "log" matches oak_log, birch_log, etc.).',
     parameters: {
       type: 'object',
       properties: {
@@ -22,42 +23,43 @@ module.exports = function ({ vec3 }) {
     },
     async execute(args, ctx) {
       const bot = ctx.bot;
+      const mcData = require('minecraft-data')(bot.version);
       const radius = Math.min(Math.max(args.radius ?? 50, 10), 100);
-      const pos = bot.entity.position;
-
       const blockType = args.type.toLowerCase();
-      let nearest = null;
-      let nearestDist = Infinity;
 
-      // Search in a grid pattern for efficiency
-      const step = 2;
-      for (let x = -radius; x <= radius; x += step) {
-        for (let z = -radius; z <= radius; z += step) {
-          if (x * x + z * z > radius * radius) continue;
-
-          for (let y = -10; y <= 10; y += 2) {
-            const checkPos = vec3(
-              Math.round(pos.x + x),
-              Math.round(pos.y + y),
-              Math.round(pos.z + z)
-            );
-            const block = bot.blockAt(checkPos);
-            if (block && block.name.includes(blockType)) {
-              const dist = pos.distanceTo(checkPos);
-              if (dist < nearestDist) {
-                nearestDist = dist;
-                nearest = checkPos;
-              }
-            }
+      // Resolve block IDs from the registry: exact match first, then substring
+      const matchingIds = [];
+      const exactBlock = mcData.blocksByName[blockType];
+      if (exactBlock) {
+        matchingIds.push(exactBlock.id);
+      } else {
+        for (const [name, block] of Object.entries(mcData.blocksByName)) {
+          if (name.includes(blockType)) {
+            matchingIds.push(block.id);
           }
         }
       }
 
-      if (!nearest) {
+      if (matchingIds.length === 0) {
+        return `No block type matching "${args.type}" found in registry. Check the block name.`;
+      }
+
+      // Use mineflayer's built-in findBlocks — searches loaded chunks via block
+      // state index instead of brute-force grid scanning
+      const results = bot.findBlocks({
+        matching: matchingIds.length === 1 ? matchingIds[0] : matchingIds,
+        maxDistance: radius,
+        count: 1,
+      });
+
+      if (!results || results.length === 0) {
         return `No ${args.type} found within ${radius} blocks. Try increasing radius or moving closer.`;
       }
 
-      return `Found ${args.type} at x=${nearest.x}, y=${nearest.y}, z=${nearest.z} (${Math.round(nearestDist)}m away). Use approach() to get there.`;
+      const found = results[0];
+      const dist = Math.round(bot.entity.position.distanceTo(found));
+
+      return `Found ${args.type} at x=${found.x}, y=${found.y}, z=${found.z} (${dist}m away). Use approach() to get there.`;
     },
   };
 };
