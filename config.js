@@ -6,10 +6,10 @@ const env = (key, fallback) => process.env[key] ?? fallback;
 
 module.exports = {
   llm: {
-    baseURL: env('LLM_BASE_URL', 'http://localhost:1234/v1'),
+    baseURL: env('LLM_BASE_URL', 'http://localhost:8080/v1'),
     apiKey: env('LLM_API_KEY', 'lm-studio'),
     models: [
-      env('LLM_MODEL', 'google/gemma-4-12b'),
+      env('LLM_MODEL', 'nex-n2-mini'),
     ],
     temperature: 0.7,
     maxRetries: 3,
