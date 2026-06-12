@@ -27,6 +27,7 @@ const cancelLockView = require('./cancel_lock_view')();
 const craft = require('./craft')();
 const smelt = require('./smelt')();
 const getRecipe = require('./get_recipe')();
+const equip = require('./equip')();
 
 // --- Tools requiring vec3 ---
 const breakBlock = require('./break_block')(deps);
@@ -75,6 +76,7 @@ const ALL_TOOLS = [
   craft,
   smelt,
   getRecipe,
+  equip,
 ];
 
 function registerTools(registry, config) {

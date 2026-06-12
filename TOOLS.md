@@ -40,6 +40,7 @@
 - **collect_drops(radius?, timeout?)** — Collect dropped items on the ground within radius. Walks to each item entity and picks it up. Radius defaults to 16 blocks, timeout defaults to 30s. Reports what was collected, unreachable items, and remaining drops.
 
 ## Inventory & Status
+- **equip(item, destination?)** — Equip an item from inventory to a specific slot. Destinations: hand, off-hand, head, torso, legs, feet. Aliases: helmet, chestplate, chest, leggings, boots, offhand. Defaults to hand for tools/weapons, or the matching armor slot for armor items. Partial names supported (e.g. "sword" picks the best available sword). Returns error if item is missing.
 - **drop_item(item, count?, username?)** — Drop items from inventory by name. Count defaults to all matching items. Faces the target player first if provided or if exactly one nearby player is present.
 - **get_inventory** — List all items in inventory, hotbar, and armor slots.
 - **get_health_status** — Get current health, food, and saturation levels.
