@@ -32,6 +32,7 @@ const holdItem = require('./hold_item')();
 const openChest = require('./open_chest')();
 const depositItem = require('./deposit_item')();
 const withdrawItem = require('./withdraw_item')();
+const consume = require('./consume')();
 
 // --- Tools requiring vec3 ---
 const breakBlock = require('./break_block')(deps);
@@ -89,6 +90,7 @@ const ALL_TOOLS = [
   openChest,
   depositItem,
   withdrawItem,
+  consume,
   attackEntity,
   defenceMode,
 ];
