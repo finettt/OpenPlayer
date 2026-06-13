@@ -62,6 +62,7 @@ module.exports = {
     toolsFile: path.join(__dirname, 'TOOLS.md'),
     transcriptFile: path.join(__dirname, 'data', 'transcript.jsonl'),
     memoryFile: path.join(__dirname, 'data', 'MEMORY.md'),
+    todoFile: path.join(__dirname, 'data', 'todo.json'),
   },
 
   logging: {

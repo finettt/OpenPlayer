@@ -58,6 +58,15 @@
 - **deposit_item(item, count?, radius?)** — Deposit items from inventory into a nearby chest. Finds closest chest, opens it, and moves the specified item(s). Partial names work (e.g. "pickaxe" deposits best pickaxe). Count defaults to all matching items. Respects stack limits and chest capacity.
 - **withdraw_item(item, count?, radius?)** — Withdraw items from a nearby chest into inventory. Finds closest chest, opens it, and moves the specified item(s) into your inventory. Partial names work. Count defaults to as many as will fit. Returns error if item not in chest or inventory full.
 
+## Task Management
+- **todo(action, text?, id?, completed_only?)** — Manage a persistent task list for multi-step goals. Tasks survive restarts and are shown in your system prompt every reasoning step.
+  - **add** (text required) — Add a new pending task. Returns the task ID.
+  - **list** — Show all tasks with IDs and statuses.
+  - **start** (id required) — Mark a task as in_progress.
+  - **complete** (id required) — Mark a task as completed.
+  - **remove** (id required) — Delete a task by ID.
+  - **clear** (completed_only, default true) — Clear completed tasks, or all tasks if completed_only=false.
+
 ## Flow Control
 - **end_loop** — Finish the current reasoning loop. Call this when you are completely done with all actions and messages for the current user request. **Required** to end a turn.
 
