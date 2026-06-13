@@ -29,6 +29,9 @@ const smelt = require('./smelt')();
 const getRecipe = require('./get_recipe')();
 const equip = require('./equip')();
 const holdItem = require('./hold_item')();
+const openChest = require('./open_chest')();
+const depositItem = require('./deposit_item')();
+const withdrawItem = require('./withdraw_item')();
 
 // --- Tools requiring vec3 ---
 const breakBlock = require('./break_block')(deps);
@@ -83,6 +86,9 @@ const ALL_TOOLS = [
   getRecipe,
   equip,
   holdItem,
+  openChest,
+  depositItem,
+  withdrawItem,
   attackEntity,
   defenceMode,
 ];

@@ -52,6 +52,11 @@
 - **get_health_status** — Get current health, food, and saturation levels.
 - **get_active_effects** — List active potion effects with duration and amplifier.
 
+## Chest & Storage
+- **open_chest(radius?)** — Open a nearby chest and list its contents. Finds the closest chest within radius (default 16 blocks). Reports item names, counts, and slot usage. Must be within 5 blocks of the chest.
+- **deposit_item(item, count?, radius?)** — Deposit items from inventory into a nearby chest. Finds closest chest, opens it, and moves the specified item(s). Partial names work (e.g. "pickaxe" deposits best pickaxe). Count defaults to all matching items. Respects stack limits and chest capacity.
+- **withdraw_item(item, count?, radius?)** — Withdraw items from a nearby chest into inventory. Finds closest chest, opens it, and moves the specified item(s) into your inventory. Partial names work. Count defaults to as many as will fit. Returns error if item not in chest or inventory full.
+
 ## Flow Control
 - **end_loop** — Finish the current reasoning loop. Call this when you are completely done with all actions and messages for the current user request. **Required** to end a turn.
 
