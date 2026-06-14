@@ -1,5 +1,6 @@
 'use strict';
 
+require('dotenv').config();
 const mineflayer = require('mineflayer');
 const pathfinder = require('mineflayer-pathfinder').pathfinder;
 const pvp = require('mineflayer-pvp').plugin;

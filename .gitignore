@@ -1,2 +1,8 @@
 node_modules
 data
+.env
+!.env.example
+*.log
+*.pid
+.DS_Store
+Thumbs.db

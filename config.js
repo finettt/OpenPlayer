@@ -2,14 +2,14 @@
 
 const path = require('path');
 
-const env = (key, fallback) => process.env[key] ?? fallback;
+const env = (key, fallback) => process.env[key] || fallback;
 
 module.exports = {
   llm: {
     baseURL: env('LLM_BASE_URL', 'http://localhost:8080/v1'),
-    apiKey: env('LLM_API_KEY', 'lm-studio'),
+    apiKey: env('LLM_API_KEY', 'sk-null'),
     models: [
-      env('LLM_MODEL', 'nex-n2-mini'),
+      env('LLM_MODEL', 'qwen3-8b'),
     ],
     temperature: 0.7,
     maxRetries: 3,
@@ -18,7 +18,7 @@ module.exports = {
 
   bot: {
     host: env('MC_HOST', 'localhost'),
-    port: parseInt(env('MC_PORT', '1488'), 10),
+    port: parseInt(env('MC_PORT', '25565'), 10),
     username: env('MC_USERNAME', 'Agent'),
     reconnect: {
       enabled: true,
@@ -35,7 +35,7 @@ module.exports = {
     jpegQuality: 80,
     settleMs: 1_500,
     browser: 'firefox',
-    executablePath: env('BROWSER_PATH', '/etc/profiles/per-user/finett/bin/firefox'),
+    executablePath: env('BROWSER_PATH', 'firefox'),
     args: ['--no-sandbox', '--disable-gpu', '--ignore-certificate-errors'],
   },
 
