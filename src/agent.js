@@ -26,14 +26,8 @@ class Agent {
       this.session.push({ role: 'user', content: event.content });
     }
 
-    if (this.session.needsCompaction()) {
-      await this.session.compact((prompt) => this.llm.complete(prompt));
-    }
-
-    let iterations = 0;
     while (true) {
-      iterations++;
-      this.log.info(`Reasoning step ${iterations}`);
+      this.log.info('Reasoning step');
 
       let responseMessage;
       try {
@@ -101,7 +95,7 @@ class Agent {
 
         if (result.ok && this.registry.tools.get(name)?.final) {
           isFinal = true;
-          this.log.info(`Final tool ${name} completed; ending current run after reasoning step ${iterations}`);
+          this.log.info(`Final tool ${name} completed; ending current run`);
         }
       }
 

@@ -40,12 +40,6 @@ module.exports = {
   },
 
   agent: {
-    maxIterations: 8,
-    compaction: {
-      triggerMessages: 30,
-      keepRecent: 10,
-      summaryModelIndex: 0,
-    },
     heartbeat: {
       enabled: env('HEARTBEAT', 'true') === 'true',
       intervalMs: 5 * 60_000,
