@@ -24,7 +24,7 @@ minebot/
 ├── src/
 │   ├── agent.js          # Agent loop
 │   ├── llm.js            # LLM client: retries + fallback chain
-│   ├── session.js        # Session: JSONL transcript, compaction, MEMORY.md
+│   ├── session.js        # Session: JSONL transcript, MEMORY.md
 │   ├── queue.js          # Command queue (serialized runs)
 │   ├── camera.js         # prismarine-viewer + puppeteer
 │   ├── logger.js         # Structured logger with levels
@@ -47,7 +47,7 @@ minebot/
 | Crafting | 3×3 recipes, smelting, workbench auto-creation |
 | Inventory | Equip, hold, drop, consume food/potions |
 | Storage | Open chests, deposit/withdraw items |
-| Memory | Persistent MEMORY.md + JSONL transcript with compaction |
+| Memory | Persistent MEMORY.md + JSONL transcript |
 | Tasks | Persistent todo list for multi-step goals |
 | Reconnect | Auto-reconnect with exponential backoff |
 | Heartbeat | Periodic awareness pulse when players nearby |
