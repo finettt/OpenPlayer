@@ -141,6 +141,7 @@ function createBot() {
 
   // Warn the agent if oxygen level is depleting, and trigger automatic emergency escape
   let emergencyEscaping = false;
+  let lastOxygenWarning = 0;
   bot.on('breath', () => {
     if (!bot.entity) return;
 
@@ -150,21 +151,41 @@ function createBot() {
     const inWater = bot.entity.isInWater || bot.entity.inWater;
 
     if (inWater && oxygen <= 10) {
-      // Notify the LLM agent about the drowning state
-      queue.push({
-        type: 'event',
-        source: 'oxygen',
-        content: `[SYSTEM]: WARNING! You are running out of oxygen (${oxygen}/20)! You are drowning! Emergency auto-escape system has been activated.`,
-      });
+      // Notify the LLM agent about the drowning state (throttled to once every 10 seconds to prevent context flooding)
+      if (Date.now() - lastOxygenWarning > 10000) {
+        queue.push({
+          type: 'event',
+          source: 'oxygen',
+          content: `[SYSTEM]: WARNING! You are running out of oxygen (${oxygen}/20)! You are drowning! Emergency auto-escape system has been activated.`,
+        });
+        lastOxygenWarning = Date.now();
+      }
 
       // Trigger automatic emergency escape
       if (!emergencyEscaping) {
         emergencyEscaping = true;
         log.warn(`EMERGENCY: Bot is drowning (oxygen: ${oxygen}/20). Executing escape protocols...`);
 
-        // 1. First, search for nearby air pockets (air, cave_air)
+        // 1. First, search for nearby exposed air pockets (must be touching water to avoid sealed stone traps!)
         const airBlock = bot.findBlock({
-          matching: (block) => ['air', 'cave_air', 'void_air'].includes(block.name),
+          matching: (block) => {
+            if (!['air', 'cave_air', 'void_air'].includes(block.name)) return false;
+            const neighbors = [
+              new Vec3(1, 0, 0),
+              new Vec3(-1, 0, 0),
+              new Vec3(0, 1, 0),
+              new Vec3(0, -1, 0),
+              new Vec3(0, 0, 1),
+              new Vec3(0, 0, -1),
+            ];
+            for (const offset of neighbors) {
+              const neighbor = bot.blockAt(block.position.plus(offset));
+              if (neighbor && neighbor.name === 'water') {
+                return true;
+              }
+            }
+            return false;
+          },
           maxDistance: 20
         });
 
@@ -173,7 +194,9 @@ function createBot() {
           const { GoalGetToBlock } = require('mineflayer-pathfinder').goals;
           const { Movements } = require('mineflayer-pathfinder');
           const movements = new Movements(bot);
-          movements.canDig = false; // allow digging to reach air if we have tools
+          movements.canDig = false; // do not dig! Underwater digging has a 5x speed penalty and is too slow.
+          movements.allowSprinting = true; // Sprint to swim faster!
+          movements.allowFreeMotion = true; // Smooth diagonal movements in narrow channels
           bot.pathfinder.setMovements(movements);
           bot.pathfinder.setGoal(new GoalGetToBlock(airBlock.position.x, airBlock.position.y, airBlock.position.z));
         } else {
@@ -193,6 +216,8 @@ function createBot() {
             const { Movements } = require('mineflayer-pathfinder');
             const movements = new Movements(bot);
             movements.canDig = false; // do not waste precious seconds digging stone without tools!
+            movements.allowSprinting = true; // Sprint to swim faster!
+            movements.allowFreeMotion = true; // Smooth diagonal movements in narrow channels
             bot.pathfinder.setMovements(movements);
             bot.pathfinder.setGoal(new GoalY(Math.min(256, Math.round(pos.y) + 30)));
           }
