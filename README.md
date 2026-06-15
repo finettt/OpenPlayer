@@ -21,6 +21,7 @@ minebot/
 ├── .env.example          # Environment template
 ├── SOUL.md               # Agent personality (editable without restart)
 ├── TOOLS.md              # Tool reference (shown to LLM)
+├── wiki.md               # Game knowledge reference (shown to LLM)
 ├── src/
 │   ├── agent.js          # Agent loop
 │   ├── llm.js            # LLM client: retries + fallback chain

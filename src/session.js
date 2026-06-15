@@ -38,6 +38,14 @@ class SessionManager {
       this.log.warn('TOOLS.md not found');
     }
 
+    let wiki = '';
+    try {
+      const wikiText = fs.readFileSync(this.config.storage.wikiFile, 'utf8').trim();
+      wiki = `\n\n## Game Knowledge\n${wikiText}`;
+    } catch {
+      this.log.warn('wiki.md not found');
+    }
+
     let memory = '';
     try {
       const mem = fs.readFileSync(this.config.storage.memoryFile, 'utf8').trim();
@@ -48,7 +56,7 @@ class SessionManager {
 
     const todoBlock = this._buildTodoBlock();
 
-    return { role: 'system', content: soul + tools + memory + todoBlock };
+    return { role: 'system', content: soul + tools + wiki + memory + todoBlock };
   }
 
   push(message) {
