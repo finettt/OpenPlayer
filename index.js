@@ -119,7 +119,7 @@ function createBot() {
     }
   });
 
-  // Auto-swim in water or lava to prevent drowning
+  // Auto-swim in water or lava to prevent drowning (includes modern sprint-swimming animation)
   let wasSwimming = false;
   bot.on('physicsTick', () => {
     if (!bot.entity) return;
@@ -128,9 +128,13 @@ function createBot() {
 
     if (inWater || inLava) {
       bot.setControlState('jump', true);
+      if (inWater) {
+        bot.setControlState('sprint', true); // Enable modern horizontal swim sprint!
+      }
       wasSwimming = true;
     } else if (wasSwimming) {
       bot.setControlState('jump', false);
+      bot.setControlState('sprint', false);
       wasSwimming = false;
     }
   });
@@ -140,60 +144,63 @@ function createBot() {
   bot.on('breath', () => {
     if (!bot.entity) return;
 
-    if (bot.oxygenLevel < 20) {
-      if (bot.oxygenLevel <= 10) {
-        // Notify the LLM agent about the drowning state
-        queue.push({
-          type: 'event',
-          source: 'oxygen',
-          content: `[SYSTEM]: WARNING! You are running out of oxygen (${bot.oxygenLevel}/20)! You are drowning! Emergency auto-escape system has been activated.`,
+    const oxygen = bot.oxygenLevel;
+    if (oxygen === null || oxygen === undefined) return;
+
+    const inWater = bot.entity.isInWater || bot.entity.inWater;
+
+    if (inWater && oxygen <= 10) {
+      // Notify the LLM agent about the drowning state
+      queue.push({
+        type: 'event',
+        source: 'oxygen',
+        content: `[SYSTEM]: WARNING! You are running out of oxygen (${oxygen}/20)! You are drowning! Emergency auto-escape system has been activated.`,
+      });
+
+      // Trigger automatic emergency escape
+      if (!emergencyEscaping) {
+        emergencyEscaping = true;
+        log.warn(`EMERGENCY: Bot is drowning (oxygen: ${oxygen}/20). Executing escape protocols...`);
+
+        // 1. First, search for nearby air pockets (air, cave_air)
+        const airBlock = bot.findBlock({
+          matching: (block) => ['air', 'cave_air', 'void_air'].includes(block.name),
+          maxDistance: 20
         });
 
-        // Trigger automatic emergency escape
-        if (!emergencyEscaping) {
-          emergencyEscaping = true;
-          log.warn(`EMERGENCY: Bot is drowning (oxygen: ${bot.oxygenLevel}/20). Executing escape protocols...`);
+        if (airBlock) {
+          log.info(`Emergency air pocket found at ${airBlock.position}. Navigating immediately!`);
+          const { GoalGetToBlock } = require('mineflayer-pathfinder').goals;
+          const { Movements } = require('mineflayer-pathfinder');
+          const movements = new Movements(bot);
+          movements.canDig = true; // allow digging to reach air if we have tools
+          bot.pathfinder.setMovements(movements);
+          bot.pathfinder.setGoal(new GoalGetToBlock(airBlock.position.x, airBlock.position.y, airBlock.position.z));
+        } else {
+          // 2. No air pockets nearby — check if we can place a door or sign to create a permanent air pocket (works in 1.13+)
+          const items = bot.inventory.items();
+          const doorItem = items.find((i) => i.name.includes('door') || i.name.includes('sign'));
 
-          // 1. First, search for nearby air pockets (air, cave_air)
-          const airBlock = bot.findBlock({
-            matching: (block) => ['air', 'cave_air', 'void_air'].includes(block.name),
-            maxDistance: 20
-          });
-
-          if (airBlock) {
-            log.info(`Emergency air pocket found at ${airBlock.position}. Navigating immediately!`);
-            const { GoalGetToBlock } = require('mineflayer-pathfinder').goals;
+          if (doorItem) {
+            log.info(`No air pockets nearby, but found door/sign in inventory. Placing for a permanent air pocket.`);
+            placeBlockForAir(bot, doorItem, log);
+          } else {
+            // 3. No items — escape the underwater cave using Pathfinder GoalY!
+            // Since we are alone and can't dig stone without tools, we navigate through open water to the surface.
+            const pos = bot.entity.position;
+            log.warn(`No air pockets or doors. Using Pathfinder GoalY to navigate along open tunnels to the surface!`);
+            const { GoalY } = require('mineflayer-pathfinder').goals;
             const { Movements } = require('mineflayer-pathfinder');
             const movements = new Movements(bot);
-            movements.canDig = true; // allow digging to reach air if we have tools
+            movements.canDig = false; // do not waste precious seconds digging stone without tools!
             bot.pathfinder.setMovements(movements);
-            bot.pathfinder.setGoal(new GoalGetToBlock(airBlock.position.x, airBlock.position.y, airBlock.position.z));
-          } else {
-            // 2. No air pockets nearby — check if we can place a door or sign to create a permanent air pocket (works in 1.13+)
-            const items = bot.inventory.items();
-            const doorItem = items.find((i) => i.name.includes('door') || i.name.includes('sign'));
-
-            if (doorItem) {
-              log.info(`No air pockets nearby, but found door/sign in inventory. Placing for a permanent air pocket.`);
-              placeBlockForAir(bot, doorItem, log);
-            } else {
-              // 3. No items — escape the underwater cave using Pathfinder GoalY!
-              // Since we are alone and can't dig stone without tools, we navigate through open water to the surface.
-              const pos = bot.entity.position;
-              log.warn(`No air pockets or doors. Using Pathfinder GoalY to navigate along open tunnels to the surface!`);
-              const { GoalY } = require('mineflayer-pathfinder').goals;
-              const { Movements } = require('mineflayer-pathfinder');
-              const movements = new Movements(bot);
-              movements.canDig = false; // do not waste precious seconds digging stone without tools!
-              bot.pathfinder.setMovements(movements);
-              bot.pathfinder.setGoal(new GoalY(Math.min(256, Math.round(pos.y) + 30)));
-            }
+            bot.pathfinder.setGoal(new GoalY(Math.min(256, Math.round(pos.y) + 30)));
           }
         }
       }
-    } else {
+    } else if (oxygen === 20 || !inWater) {
       if (emergencyEscaping) {
-        log.info('Oxygen level restored. Emergency mode deactivated.');
+        log.info('Oxygen level fully restored or bot exited water. Emergency mode deactivated.');
         bot.pathfinder.setGoal(null);
         emergencyEscaping = false;
       }
