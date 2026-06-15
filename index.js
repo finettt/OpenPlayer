@@ -173,7 +173,7 @@ function createBot() {
           const { GoalGetToBlock } = require('mineflayer-pathfinder').goals;
           const { Movements } = require('mineflayer-pathfinder');
           const movements = new Movements(bot);
-          movements.canDig = true; // allow digging to reach air if we have tools
+          movements.canDig = false; // allow digging to reach air if we have tools
           bot.pathfinder.setMovements(movements);
           bot.pathfinder.setGoal(new GoalGetToBlock(airBlock.position.x, airBlock.position.y, airBlock.position.z));
         } else {
