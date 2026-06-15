@@ -169,6 +169,7 @@ function createBot() {
         // 1. First, search for nearby exposed air pockets (must be touching water to avoid sealed stone traps!)
         const airBlock = bot.findBlock({
           matching: (block) => {
+            if (!block || !block.position) return false;
             if (!['air', 'cave_air', 'void_air'].includes(block.name)) return false;
             const neighbors = [
               new Vec3(1, 0, 0),
