@@ -63,4 +63,11 @@ module.exports = {
     level: env('LOG_LEVEL', 'info'),
     redactImages: true,
   },
+
+  mining: {
+    durabilityThreshold: 0.20,
+    autoSmelt: true,
+    craftRadius: 8,
+    preferredToolTier: null, // e.g. 'iron' to skip diamond/netherite
+  },
 };

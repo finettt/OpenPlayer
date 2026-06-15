@@ -4,6 +4,8 @@ require('dotenv').config();
 const mineflayer = require('mineflayer');
 const pathfinder = require('mineflayer-pathfinder').pathfinder;
 const pvp = require('mineflayer-pvp').plugin;
+const toolPlugin = require('mineflayer-tool').plugin;
+const collectBlockPlugin = require('mineflayer-collectblock').plugin;
 
 const config = require('./config');
 const { Logger } = require('./src/logger');
@@ -42,6 +44,8 @@ function createBot() {
   });
   bot.loadPlugin(pathfinder);
   bot.loadPlugin(pvp);
+  bot.loadPlugin(toolPlugin);
+  bot.loadPlugin(collectBlockPlugin);
 
   const sendChat = makeChatSender(bot, config, log.child('chat'));
 
