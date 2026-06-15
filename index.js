@@ -224,9 +224,9 @@ function createBot() {
           }
         }
       }
-    } else if (oxygen === 20 || !inWater) {
+    } else if (oxygen === 20) {
       if (emergencyEscaping) {
-        log.info('Oxygen level fully restored or bot exited water. Emergency mode deactivated.');
+        log.info('Oxygen level fully restored. Emergency mode deactivated.');
         bot.pathfinder.setGoal(null);
         emergencyEscaping = false;
       }
