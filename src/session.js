@@ -1,7 +1,7 @@
 'use strict';
 
+const crypto = require('crypto');
 const fs = require('fs');
-const path = require('path');
 
 class SessionManager {
   constructor(config, logger) {
@@ -10,9 +10,42 @@ class SessionManager {
     this.messages = [];
     this.todos = [];
     this._nextTodoId = 1;
+    this._staticCache = null;
+    this._staticDirty = true;
+    this._watchers = [];
     this._ensureStorage();
     this._loadTodos();
     this._loadTranscript();
+    this._setupWatchers();
+  }
+
+  destroy() {
+    for (const w of this._watchers) w.close();
+    this._watchers = [];
+  }
+
+  _setupWatchers() {
+    const files = [this.config.storage.soulFile, this.config.storage.toolsFile, this.config.storage.memoryFile];
+    for (const file of files) {
+      try {
+        const w = fs.watch(file, () => {
+          this._staticDirty = true;
+          this.log.debug(`Static cache invalidated: ${file} changed`);
+        });
+        this._watchers.push(w);
+      } catch { /* file may not exist yet */ }
+    }
+  }
+
+  _getStaticSystem() {
+    if (!this._staticDirty && this._staticCache !== null) {
+      return this._staticCache;
+    }
+    this._staticCache = this._buildStaticSystem();
+    this._staticDirty = false;
+    const hash = crypto.createHash('sha256').update(this._staticCache.content).digest('hex').slice(0, 12);
+    this.log.debug(`Static system hash: ${hash}`);
+    return this._staticCache;
   }
 
   _ensureStorage() {
@@ -22,7 +55,7 @@ class SessionManager {
     }
   }
 
-  buildSystemPrompt() {
+  _buildStaticSystem() {
     let soul = 'You are an AI agent in Minecraft. Use send_message to talk to players.';
     try {
       soul = fs.readFileSync(this.config.storage.soulFile, 'utf8');
@@ -59,18 +92,28 @@ class SessionManager {
     return { role: 'system', content: soul + tools + wiki + memory + todoBlock };
   }
 
+  buildSystemPrompt() {
+    return this._getStaticSystem();
+  }
+
   push(message) {
     this.messages.push(message);
     this._appendTranscript(message);
   }
 
-  getContext() {
-    return [this.buildSystemPrompt(), ...this.messages];
+  getContext({ bot } = {}) {
+    const messages = [this._getStaticSystem(), ...this.messages];
+    const tail = bot ? this._buildDynamicTail(bot) : null;
+    if (tail !== null) {
+      messages.push({ role: 'system', content: tail });
+    }
+    return messages;
   }
 
   remember(fact) {
     const line = `- [${new Date().toISOString()}] ${fact}\n`;
     fs.appendFileSync(this.config.storage.memoryFile, line);
+    this._staticDirty = true;
     this.log.info(`Remembered: ${fact}`);
   }
 
@@ -127,6 +170,7 @@ class SessionManager {
         };
         this.todos.push(todo);
         this._saveTodos();
+        this._staticDirty = true;
         this.log.info(`Todo added: [${todo.id}] ${todo.text}`);
         return `Task #${todo.id} added: "${todo.text}"`;
       }
@@ -146,6 +190,7 @@ class SessionManager {
         if (todo.status === 'completed') return `Error: task #${params.id} is already completed.`;
         todo.status = 'in_progress';
         this._saveTodos();
+        this._staticDirty = true;
         this.log.info(`Todo started: [${todo.id}] ${todo.text}`);
         return `Task #${todo.id} started: "${todo.text}"`;
       }
@@ -156,6 +201,7 @@ class SessionManager {
         if (todo.status === 'completed') return `Task #${params.id} is already completed.`;
         todo.status = 'completed';
         this._saveTodos();
+        this._staticDirty = true;
         this.log.info(`Todo completed: [${todo.id}] ${todo.text}`);
         return `Task #${todo.id} completed: "${todo.text}"`;
       }
@@ -165,6 +211,7 @@ class SessionManager {
         if (idx === -1) return `Error: task #${params.id} not found.`;
         const [removed] = this.todos.splice(idx, 1);
         this._saveTodos();
+        this._staticDirty = true;
         this.log.info(`Todo removed: [${removed.id}] ${removed.text}`);
         return `Task #${removed.id} removed: "${removed.text}"`;
       }
@@ -174,6 +221,7 @@ class SessionManager {
           const count = this.todos.length;
           this.todos = [];
           this._saveTodos();
+          this._staticDirty = true;
           this.log.info(`All ${count} todos cleared`);
           return `Cleared all ${count} tasks.`;
         }
@@ -181,6 +229,7 @@ class SessionManager {
         this.todos = this.todos.filter((t) => t.status !== 'completed');
         const removed = before - this.todos.length;
         this._saveTodos();
+        this._staticDirty = true;
         this.log.info(`Cleared ${removed} completed todos`);
         return removed > 0 ? `Cleared ${removed} completed task(s).` : 'No completed tasks to clear.';
       }
@@ -188,6 +237,58 @@ class SessionManager {
       default:
         return `Error: unknown todo action "${action}".`;
     }
+  }
+
+  _buildDynamicTail(bot) {
+    const entity = bot?.entity;
+    if (!entity) return null;
+
+    const pos = entity.position;
+    const lines = [
+      `## STATE`,
+      `HP: ${Math.round(bot.health)} / food: ${Math.round(bot.food)} (sat: ${bot.foodSaturation?.toFixed(1) ?? '?'})`,
+      `time: ${bot.time.timeOfDay} / day ${bot.time.timeSinceWorldStart > 0 ? Math.floor(bot.time.timeSinceWorldStart / 24000) + 1 : 1} / ${this._dayPhase(bot)}`,
+      `weather: ${bot.isRaining ? 'rain' : 'clear'}`,
+      `pos: (${Math.round(pos.x)}, ${Math.round(pos.y)}, ${Math.round(pos.z)})`,
+      `biome: ${bot.blockAt?.(pos)?.name ?? 'unknown'}`,
+      `dimension: overworld`,
+    ];
+
+    // inventory
+    const inv = bot.inventory;
+    const used = inv.items()?.length ?? 0;
+    lines.push(`inventory: ${used}/36 slots`);
+
+    // held item
+    const held = bot.heldItem;
+    lines.push(`held: ${held ? `${held.name} (x${held.count})` : 'empty'}`);
+
+    // nearby players (within 32m) via bot.players
+    const players = Object.values(bot.players || {})
+      .filter((p) => p.username !== bot.username && p.entity)
+      .map((p) => ({ name: p.username, dist: Math.round(p.entity.position.distanceTo(pos)) }))
+      .filter((p) => p.dist <= 32)
+      .sort((a, b) => a.dist - b.dist);
+    lines.push(`nearby_players: ${players.length > 0 ? players.map(p => `${p.name} (${p.dist}m)`).join(', ') : 'none'}`);
+
+    // hostiles (within 16m, cap 5) via bot.entities
+    const hostiles = Object.values(bot.entities || {})
+      .filter((e) => e.type === 'hostile' && e.position && pos.distanceTo(e.position) <= 16)
+      .map((e) => ({ name: e.name ?? e.displayName ?? 'mob', dist: Math.round(pos.distanceTo(e.position)) }))
+      .sort((a, b) => a.dist - b.dist)
+      .slice(0, 5);
+    lines.push(`hostiles: ${hostiles.length > 0 ? hostiles.map(h => `${h.name} (${h.dist}m)`).join(', ') : 'none'}`);
+
+    return lines.join('\n');
+  }
+
+  _dayPhase(bot) {
+    const t = bot.time.timeOfDay;
+    if (t < 6000) return 'night';
+    if (t < 12000) return 'morning';
+    if (t < 18000) return 'afternoon';
+    if (t < 22000) return 'evening';
+    return 'night';
   }
 
   _appendTranscript(message) {

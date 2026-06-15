@@ -32,7 +32,7 @@ class Agent {
       let responseMessage;
       try {
         responseMessage = await this.llm.chat({
-          messages: this.session.getContext(),
+          messages: this.session.getContext({ bot: this.toolContext.bot }),
           tools: this.registry.getSchemas(),
         });
       } catch (err) {
