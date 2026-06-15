@@ -54,6 +54,7 @@ module.exports = {
     dir: path.join(__dirname, 'data'),
     soulFile: path.join(__dirname, 'SOUL.md'),
     toolsFile: path.join(__dirname, 'TOOLS.md'),
+    wikiFile: path.join(__dirname, 'wiki.md'),
     transcriptFile: path.join(__dirname, 'data', 'transcript.jsonl'),
     memoryFile: path.join(__dirname, 'data', 'MEMORY.md'),
     todoFile: path.join(__dirname, 'data', 'todo.json'),
