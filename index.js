@@ -2,6 +2,7 @@
 
 require('dotenv').config({ override: true });
 const mineflayer = require('mineflayer');
+const { Vec3 } = require('vec3');
 const pathfinder = require('mineflayer-pathfinder').pathfinder;
 const pvp = require('mineflayer-pvp').plugin;
 const toolPlugin = require('mineflayer-tool').plugin;
@@ -110,6 +111,92 @@ function createBot() {
         source: 'health',
         content: `[SYSTEM]: WARNING! Your health is critically low: ${bot.health}/20.`,
       });
+    }
+
+    // If we are under water/lava and taking damage, eat food to regenerate health!
+    if (bot.health < 20 && bot.entity && (bot.entity.isInWater || bot.entity.inWater || bot.entity.isInLava || bot.entity.inLava)) {
+      emergencyEat(bot, log).catch((err) => log.error(`Emergency eat failed: ${err.message}`));
+    }
+  });
+
+  // Auto-swim in water or lava to prevent drowning
+  let wasSwimming = false;
+  bot.on('physicsTick', () => {
+    if (!bot.entity) return;
+    const inWater = bot.entity.isInWater || bot.entity.inWater;
+    const inLava = bot.entity.isInLava || bot.entity.inLava;
+
+    if (inWater || inLava) {
+      bot.setControlState('jump', true);
+      wasSwimming = true;
+    } else if (wasSwimming) {
+      bot.setControlState('jump', false);
+      wasSwimming = false;
+    }
+  });
+
+  // Warn the agent if oxygen level is depleting, and trigger automatic emergency escape
+  let emergencyEscaping = false;
+  bot.on('breath', () => {
+    if (!bot.entity) return;
+
+    if (bot.oxygenLevel < 20) {
+      if (bot.oxygenLevel <= 10) {
+        // Notify the LLM agent about the drowning state
+        queue.push({
+          type: 'event',
+          source: 'oxygen',
+          content: `[SYSTEM]: WARNING! You are running out of oxygen (${bot.oxygenLevel}/20)! You are drowning! Emergency auto-escape system has been activated.`,
+        });
+
+        // Trigger automatic emergency escape
+        if (!emergencyEscaping) {
+          emergencyEscaping = true;
+          log.warn(`EMERGENCY: Bot is drowning (oxygen: ${bot.oxygenLevel}/20). Executing escape protocols...`);
+
+          // 1. First, search for nearby air pockets (air, cave_air)
+          const airBlock = bot.findBlock({
+            matching: (block) => ['air', 'cave_air', 'void_air'].includes(block.name),
+            maxDistance: 20
+          });
+
+          if (airBlock) {
+            log.info(`Emergency air pocket found at ${airBlock.position}. Navigating immediately!`);
+            const { GoalGetToBlock } = require('mineflayer-pathfinder').goals;
+            const { Movements } = require('mineflayer-pathfinder');
+            const movements = new Movements(bot);
+            movements.canDig = true; // allow digging to reach air if we have tools
+            bot.pathfinder.setMovements(movements);
+            bot.pathfinder.setGoal(new GoalGetToBlock(airBlock.position.x, airBlock.position.y, airBlock.position.z));
+          } else {
+            // 2. No air pockets nearby — check if we can place a door or sign to create a permanent air pocket (works in 1.13+)
+            const items = bot.inventory.items();
+            const doorItem = items.find((i) => i.name.includes('door') || i.name.includes('sign'));
+
+            if (doorItem) {
+              log.info(`No air pockets nearby, but found door/sign in inventory. Placing for a permanent air pocket.`);
+              placeBlockForAir(bot, doorItem, log);
+            } else {
+              // 3. No items — escape the underwater cave using Pathfinder GoalY!
+              // Since we are alone and can't dig stone without tools, we navigate through open water to the surface.
+              const pos = bot.entity.position;
+              log.warn(`No air pockets or doors. Using Pathfinder GoalY to navigate along open tunnels to the surface!`);
+              const { GoalY } = require('mineflayer-pathfinder').goals;
+              const { Movements } = require('mineflayer-pathfinder');
+              const movements = new Movements(bot);
+              movements.canDig = false; // do not waste precious seconds digging stone without tools!
+              bot.pathfinder.setMovements(movements);
+              bot.pathfinder.setGoal(new GoalY(Math.min(256, Math.round(pos.y) + 30)));
+            }
+          }
+        }
+      }
+    } else {
+      if (emergencyEscaping) {
+        log.info('Oxygen level restored. Emergency mode deactivated.');
+        bot.pathfinder.setGoal(null);
+        emergencyEscaping = false;
+      }
     }
   });
 
@@ -233,5 +320,39 @@ process.on('uncaughtException', (err) => {
 process.on('unhandledRejection', (reason) => {
   log.error(`Unhandled rejection: ${reason}`);
 });
+
+async function placeBlockForAir(bot, doorItem, log) {
+  try {
+    await bot.equip(doorItem, 'hand');
+    const headPos = bot.entity.position.offset(0, 1.6, 0);
+    const blockBelow = bot.blockAt(bot.entity.position.offset(0, -1, 0));
+    if (blockBelow && blockBelow.name !== 'air' && blockBelow.name !== 'water' && blockBelow.name !== 'lava') {
+      await bot.lookAt(blockBelow.position);
+      await bot.placeBlock(blockBelow, new Vec3(0, 1, 0));
+      log.info(`Placed door/sign for permanent air pocket!`);
+    }
+  } catch (err) {
+    log.error(`Failed to place door/sign for air: ${err.message}`);
+  }
+}
+
+async function emergencyEat(bot, log) {
+  if (bot.food >= 20) return;
+  const items = bot.inventory.items();
+  const mcData = require('minecraft-data')(bot.version);
+  const foodItem = items.find(item => {
+    const info = mcData.foodsByName[item.name] || mcData.foods[item.type];
+    return info && item.name !== 'pufferfish' && item.name !== 'rotten_flesh' && item.name !== 'spider_eye';
+  });
+  if (foodItem) {
+    try {
+      log.info(`Emergency eating ${foodItem.name} to regenerate health!`);
+      await bot.equip(foodItem, 'hand');
+      await bot.consume();
+    } catch (err) {
+      log.error(`Failed to eat food: ${err.message}`);
+    }
+  }
+}
 
 createBot();

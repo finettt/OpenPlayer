@@ -244,9 +244,14 @@ class SessionManager {
     if (!entity) return null;
 
     const pos = entity.position;
+    const inWater = entity.isInWater || entity.inWater;
+    const inLava = entity.isInLava || entity.inLava;
     const lines = [
       `## STATE`,
       `HP: ${Math.round(bot.health)} / food: ${Math.round(bot.food)} (sat: ${bot.foodSaturation?.toFixed(1) ?? '?'})`,
+      `oxygen: ${bot.oxygenLevel ?? 20} / 20`,
+      `in_water: ${inWater ? 'yes' : 'no'}`,
+      `in_lava: ${inLava ? 'yes' : 'no'}`,
       `time: ${bot.time.timeOfDay} / day ${bot.time.timeSinceWorldStart > 0 ? Math.floor(bot.time.timeSinceWorldStart / 24000) + 1 : 1} / ${this._dayPhase(bot)}`,
       `weather: ${bot.isRaining ? 'rain' : 'clear'}`,
       `pos: (${Math.round(pos.x)}, ${Math.round(pos.y)}, ${Math.round(pos.z)})`,
