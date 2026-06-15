@@ -63,4 +63,5 @@ module.exports = {
     level: env('LOG_LEVEL', 'info'),
     redactImages: true,
   },
+
 };
