@@ -32,6 +32,7 @@ const holdItem = require('./hold_item')();
 const openChest = require('./open_chest')();
 const depositItem = require('./deposit_item')();
 const withdrawItem = require('./withdraw_item')();
+const withdrawFromContainer = require('./withdraw_from_container')();
 const consume = require('./consume')();
 const todo = require('./todo')();
 
@@ -91,6 +92,7 @@ const ALL_TOOLS = [
   openChest,
   depositItem,
   withdrawItem,
+  withdrawFromContainer,
   consume,
   todo,
   attackEntity,
