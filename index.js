@@ -215,7 +215,7 @@ const llm = new LLMClient(config, log.child('llm'));
 const session = new SessionManager(config, log.child('session'));
 const registry = new ToolRegistry(log.child('tools'));
 const camera = new Camera(config, log.child('camera'));
-const queue = new CommandQueue(log.child('queue'));
+const queue = new CommandQueue({ config, logger: log.child('queue') });
 
 registerTools(registry, config);
 
