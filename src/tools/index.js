@@ -10,6 +10,7 @@ const deps = { vec3, goals, Movements };
 const sendMessage = require('./send_message')(deps);
 const endLoop = require('./end_loop')();
 const findBlock = require('./find_block')();
+const findEntity = require('./find_entity')();
 const takeScreenshot = require('./take_screenshot')();
 const lookAtPlayer = require('./look_at_player')();
 const getSurroundings = require('./get_surroundings')();
@@ -77,6 +78,7 @@ const ALL_TOOLS = [
   goToY,
   approach,
   findBlock,
+  findEntity,
   scanArea,
   lockView,
   cancelLockView,
