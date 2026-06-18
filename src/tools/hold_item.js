@@ -116,17 +116,17 @@ module.exports = function () {
         return `Already holding ${heldItem.name} (x${heldItem.count}) in hand.`;
       }
 
-      // Soft warning: holding a non-weapon while in combat means defence_mode
+      // Soft warning: holding a non-weapon while in combat means defense_mode
       // will fight bare-handed (or it will fight you for control of the slot).
       const isCurrentWeapon = heldItem &&
         (heldItem.name.endsWith('_sword') || heldItem.name.endsWith('_axe'));
       const isNewWeapon = itemName.endsWith('_sword') || itemName.endsWith('_axe') ||
         itemName === 'sword' || itemName === 'axe';
       let combatWarning = '';
-      if (isCurrentWeapon && !isNewWeapon && bot._defenceMode?.active) {
+      if (isCurrentWeapon && !isNewWeapon && bot._defenseMode?.active) {
         combatWarning =
-          `Warning: defence_mode is active and you're swapping from ${heldItem.name} to ${itemName}. ` +
-          `Combat may suffer — defence_mode re-equips a weapon every tick, so this swap may flicker. `;
+          `Warning: defense_mode is active and you're swapping from ${heldItem.name} to ${itemName}. ` +
+          `Combat may suffer — defense_mode re-equips a weapon every tick, so this swap may flicker. `;
       }
 
       // --- Find the item in inventory ---

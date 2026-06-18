@@ -13,12 +13,12 @@ const { LLMClient } = require('./src/llm');
 const { SessionManager } = require('./src/session');
 const { ToolRegistry } = require('./src/tools/registry');
 const { registerTools, makeChatSender } = require('./src/tools');
-const { enableDefence, disableDefence, markRecentAttacker } = require('./src/tools/defence_mode');
+const { enableDefense, disableDefense, markRecentAttacker } = require('./src/tools/defense_mode');
 
 // Maximum distance (blocks) at which a hostile is considered a plausible
-// attacker for auto-defence. Beyond this, damage is assumed to be
+// attacker for auto-defense. Beyond this, damage is assumed to be
 // environmental (fall, fire, drown, suffocation, cactus, etc.) and the
-// defence loop is NOT auto-enabled.
+// defense loop is NOT auto-enabled.
 const PLAUSIBLE_ATTACKER_RANGE = 6;
 
 // Damage event aggregation. The Minecraft server can fire `entityHurt` many
@@ -62,13 +62,13 @@ function resetDamageWindow() {
 /** Build the human-readable summary of the current aggregation window. */
 function renderDamageSummary() {
   const parts = [];
-  const defenceActive = !!bot?._defenceMode?.active;
+  const defenseActive = !!bot?._defenseMode?.active;
 
   if (_damage.envHits > 0 && _damage.hits === 0) {
     // Pure environmental window
     parts.push(`[SYSTEM]: Environmental damage ×${_damage.envHits}.`);
     parts.push(`HP ${_damage.minHp.toFixed(1)}/20 (was ${_damage.maxHp.toFixed(1)}).`);
-    parts.push('Likely cause: fire, lava, drowning, fall, cactus, suffocation, or starvation. Defence_mode cannot help — move away from the hazard.');
+    parts.push('Likely cause: fire, lava, drowning, fall, cactus, suffocation, or starvation. Defense_mode cannot help — move away from the hazard.');
     return parts.join(' ');
   }
   const mobTallies = [..._damage.byMob.entries()]
@@ -112,46 +112,46 @@ function renderDamageSummary() {
   const SWARM = 5;                      // ≥N enemies = autopilot can't keep up
   const HP_LOW = 14;
   const HP_CRIT = 6;
-  const mode = bot?._defenceMode?.mode;  // SOLO | SWARM_PILLAR | SWARM_KITE | RETREAT
-  const defenceInRetreat = mode === 'RETREAT' || bot?._defenceMode?.retreating;
+  const mode = bot?._defenseMode?.mode;  // SOLO | SWARM_PILLAR | SWARM_KITE | RETREAT
+  const defenseInRetreat = mode === 'RETREAT' || bot?._defenseMode?.retreating;
 
-  if (!defenceActive) {
-    parts.push('Defence_mode is OFF. Call defence_mode(enabled=true) so the bot fights back automatically.');
+  if (!defenseActive) {
+    parts.push('Defense_mode is OFF. Call defense_mode(enabled=true) so the bot fights back automatically.');
   } else if (nearbyCount === 0) {
-    parts.push('Defence_mode is ON but no nearby threats — it will idle. You can ignore this alert.');
+    parts.push('Defense_mode is ON but no nearby threats — it will idle. You can ignore this alert.');
   } else if (_damage.minHp <= HP_CRIT) {
-    // Critical HP — defence cannot save us by itself
+    // Critical HP — defense cannot save us by itself
     parts.push(
       `CRITICAL: HP ${_damage.minHp.toFixed(1)}/20 and still under attack. ` +
       'ACT NOW: (1) consume golden_apple or enchanted_golden_apple if you have one, ' +
       '(2) go_to to a wall/water 30+ blocks away, ' +
       '(3) pillar up with place_block(dirt/cobble) under your feet. ' +
-      'Defence_mode alone WILL NOT save you here.'
+      'Defense_mode alone WILL NOT save you here.'
     );
   } else if (nearbyCount >= SWARM && _damage.minHp <= HP_LOW) {
     // Outnumbered AND being hurt — urgent help required
     parts.push(
       `URGENT: outnumbered (${nearbyCount} hostiles) and taking damage (HP ${_damage.minHp.toFixed(1)}). ` +
-      'Defence_mode is overwhelmed. ACT: pillar up with place_block under feet, ' +
+      'Defense_mode is overwhelmed. ACT: pillar up with place_block under feet, ' +
       'or flee via go_to to safe terrain 30+ blocks away. ' +
-      'Defence_mode will keep attacking, you focus on positioning.'
+      'Defense_mode will keep attacking, you focus on positioning.'
     );
   } else if (nearbyCount >= SWARM) {
     // Outnumbered but still healthy — proactive but not panic
     parts.push(
-      `Defence_mode is handling but outnumbered (${nearbyCount} hostiles). ` +
+      `Defense_mode is handling but outnumbered (${nearbyCount} hostiles). ` +
       'Consider helping: pillar up with place_block, retreat via go_to, or find chokepoint. ' +
-      'Do NOT call attack_entity / defence_mode (they fight the autopilot).'
+      'Do NOT call attack_entity / defense_mode (they fight the autopilot).'
     );
-  } else if (defenceInRetreat) {
-    // Defence itself signalled retreat — listen
+  } else if (defenseInRetreat) {
+    // Defense itself signalled retreat — listen
     parts.push(
-      `Defence_mode is RETREATING (it judged the fight unwinnable). ` +
+      `Defense_mode is RETREATING (it judged the fight unwinnable). ` +
       'Help by: place_block to pillar/wall off, or go_to to a known safe spot. ' +
       'Eating beats fighting right now.'
     );
   } else {
-    parts.push('Defence_mode is handling combat (auto-attacks, auto-equips weapon/shield, auto-eats when safe). Do NOT call attack_entity, consume, hold_item or defence_mode — they will fight the autopilot.');
+    parts.push('Defense_mode is handling combat (auto-attacks, auto-equips weapon/shield, auto-eats when safe). Do NOT call attack_entity, consume, hold_item or defense_mode — they will fight the autopilot.');
   }
 
   if (_damage.envHits > 0) {
@@ -314,7 +314,7 @@ function createBot() {
     //   - Skeletons / blazes / ghasts within 24 blocks (ranged attackers)
     //
     // Anything else is treated as environmental damage (fall, fire, drown,
-    // cactus, suffocation, starvation) and does NOT trigger auto-defence.
+    // cactus, suffocation, starvation) and does NOT trigger auto-defense.
     const RANGED_ATTACKER_NAMES = new Set([
       'skeleton', 'stray', 'wither_skeleton',
       'blaze', 'ghast', 'pillager', 'piglin',
@@ -339,24 +339,24 @@ function createBot() {
       }
     }
 
-    // Environmental damage path — aggregate without enabling defence.
+    // Environmental damage path — aggregate without enabling defense.
     if (!attacker) {
       pushDamageEvent({ environmental: true });
       return;
     }
 
-    // Remember this attacker so the defence loop will engage it even if its
+    // Remember this attacker so the defense loop will engage it even if its
     // entity.type isn't `'hostile'` (angered wolves, iron golems, zombified
     // piglins, players in PvP, etc.).
     markRecentAttacker(bot, attacker);
 
-    // Auto-enable defence mode if not already active.
-    if (bot.pvp && !bot._defenceMode?.active) {
+    // Auto-enable defense mode if not already active.
+    if (bot.pvp && !bot._defenseMode?.active) {
       try {
-        enableDefence(bot);
-        log.info('Defence mode auto-enabled due to damage');
+        enableDefense(bot);
+        log.info('Defense mode auto-enabled due to damage');
       } catch (err) {
-        log.error(`Auto-defence enable failed: ${err.message}`);
+        log.error(`Auto-defense enable failed: ${err.message}`);
       }
     }
 
@@ -394,9 +394,9 @@ function createBot() {
     };
     bot._deathCount = (bot._deathCount || 0) + 1;
 
-    // Defence mode is meaningless after death — disable so we don't try to
+    // Defense mode is meaningless after death — disable so we don't try to
     // resume attacking a phantom target post-respawn.
-    try { disableDefence(bot); } catch { /* ignore */ }
+    try { disableDefense(bot); } catch { /* ignore */ }
 
     // Reset damage aggregation — old HP / hit counts are stale now.
     resetDamageWindow();
@@ -414,7 +414,7 @@ function createBot() {
         `Death location: ${posStr} in ${deathDim}. ` +
         `Death count this session: ${bot._deathCount}. ` +
         `You will respawn shortly. Inventory may be dropped at the death location ` +
-        `(unless server has /keepInventory). Defence_mode has been disabled. ` +
+        `(unless server has /keepInventory). Defense_mode has been disabled. ` +
         `When you respawn you will be at full HP/food in a new location — ` +
         `do NOT claim you "survived" or "escaped"; you actually died. ` +
         `Treat respawn as a hard reset: re-orient (get_surroundings), ` +

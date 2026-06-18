@@ -257,7 +257,7 @@ Diamond ore: **Y = −64 to Y = 16**, peak at **Y = −59**. Veins of 1-4 blocks
 
 ```
 1. scan_area(64, "spawners")         → locate fortress / blaze spawner
-2. defence_mode(true)                → enable auto-defence
+2. defense_mode(true)                → enable auto-defense
 3. attack_entity("blaze")            → attack blaze
 4. collect_drops()                   → collect blaze rods
 5. repeat until 10+ blaze rods
@@ -293,7 +293,7 @@ Need ~15-20 ender pearls. Two strategies:
 5. repeat
 ```
 
-**Note:** You cannot wear a carved pumpkin via `equip` for enderman protection. Instead, avoid looking directly at them — attack one at a time and use `defence_mode`.
+**Note:** You cannot wear a carved pumpkin via `equip` for enderman protection. Instead, avoid looking directly at them — attack one at a time and use `defense_mode`.
 
 ### Nether Dangers Reference
 
@@ -385,7 +385,7 @@ Verify via `get_inventory` and `get_health_status`:
 ### Step 2: Fight the Dragon
 
 ```
-1. defence_mode(true)                → auto-fight nearby endermen
+1. defense_mode(true)                → auto-fight nearby endermen
 2. When dragon perches:
    attack_entity("Ender Dragon")     → hit head for double damage
 3. When dragon airborne:
@@ -395,7 +395,7 @@ Verify via `get_inventory` and `get_health_status`:
 5. consume("best_food")              → keep hunger up for regeneration
 ```
 
-**Tip:** Do NOT provoke endermen unless necessary. If they attack, `defence_mode` handles them.
+**Tip:** Do NOT provoke endermen unless necessary. If they attack, `defense_mode` handles them.
 
 ### After Victory
 
@@ -569,7 +569,7 @@ Decorative biome with pink petals and cherry trees. Bees spawn frequently. No un
 4. **Keep shield in off-hand** — `equip("shield", "offhand")` blocks arrows, explosions, blaze fireballs, dragon breath
 5. **Cook all food** — `smelt("raw_beef")` before `consume`
 6. **Keep hunger above 18** — enables natural health regeneration; `consume("best_food")` when low
-7. **Enable defence_mode when in danger** — auto-fights hostiles within 16 blocks; the system auto-enables it when you take damage
+7. **Enable defense_mode when in danger** — auto-fights hostiles within 16 blocks; the system auto-enables it when you take damage
 8. **Use `remember()` for critical facts** — portal coordinates, base location, resource positions
 9. **Use `todo` for multi-step tasks** — add tasks before starting, mark in_progress while working, complete when done
 10. **Use `get_surroundings` or `take_screenshot` before acting** — situational awareness prevents walking into lava or hostile mobs

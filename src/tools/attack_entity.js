@@ -161,22 +161,22 @@ module.exports = function ({ goals, Movements }) {
       const { entity, label } = resolved;
       const dist = entity.position.distanceTo(bot.entity.position);
 
-      // Soft notice: if defence_mode is already handling this fight, the LLM
+      // Soft notice: if defense_mode is already handling this fight, the LLM
       // is probably wasting a turn. We still proceed (LLM might want to
       // re-target on purpose), but make sure it knows what's going on.
-      const defenceActive = !!bot._defenceMode?.active;
-      const defenceBusyOnHostile = defenceActive
+      const defenseActive = !!bot._defenseMode?.active;
+      const defenseBusyOnHostile = defenseActive
         && bot.pvp?.target?.isValid
         && bot.pvp.target.type === 'hostile';
-      let defenceNotice = '';
-      if (defenceBusyOnHostile) {
+      let defenseNotice = '';
+      if (defenseBusyOnHostile) {
         const cur = bot.pvp.target;
         const curName = cur.name || cur.displayName || 'unknown';
         const curDist = Math.round(cur.position.distanceTo(bot.entity.position));
-        defenceNotice =
-          `Note: defence_mode is already attacking ${curName} (${curDist}m). ` +
+        defenseNotice =
+          `Note: defense_mode is already attacking ${curName} (${curDist}m). ` +
           `Calling attack_entity here will override its target to ${label}. ` +
-          `If that wasn't intended, you can let defence_mode handle combat itself. `;
+          `If that wasn't intended, you can let defense_mode handle combat itself. `;
       }
 
       // Early range warning — the pvp plugin will pathfind, but if they're
@@ -204,9 +204,9 @@ module.exports = function ({ goals, Movements }) {
 
       // Auto-select the best weapon for this target (Smite vs undead, Bane vs
       // arthropods, otherwise highest Sharpness/tier). Shares logic with
-      // defence_mode so behaviour is consistent across the two entry points.
+      // defense_mode so behaviour is consistent across the two entry points.
       try {
-        const { equipBestWeapon } = require('./defence_mode');
+        const { equipBestWeapon } = require('./defense_mode');
         await equipBestWeapon(bot, entity);
       } catch { /* fall back to whatever is in hand */ }
 
@@ -225,9 +225,9 @@ module.exports = function ({ goals, Movements }) {
         const heldItem = bot.inventory.slots[bot.QUICK_BAR_START + bot.quickBarSlot];
         const weapon = heldItem ? heldItem.name : 'bare hand';
 
-        return `${defenceNotice}Attacking ${label} with ${weapon}. ` +
+        return `${defenseNotice}Attacking ${label} with ${weapon}. ` +
           `Distance: ${Math.round(dist)}m. ` +
-          `The bot will pursue and attack until the target dies, you call attack_entity again, or you call defence_mode(off).`;
+          `The bot will pursue and attack until the target dies, you call attack_entity again, or you call defense_mode(off).`;
       } catch (err) {
         return `Failed to attack ${label}: ${err.message}`;
       }

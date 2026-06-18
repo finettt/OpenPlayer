@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * defence_mode tool — Toggle automatic self-defence against hostile mobs.
+ * defense_mode tool — Toggle automatic self-defense against hostile mobs.
  *
  * When ON, runs a tick loop that:
  *   - Scans for threats (hostile mobs OR recently-aggro'd entities) in range
@@ -28,7 +28,7 @@
  *     mobs (≤4m) are around; briefly lowers it before each swing so attacks
  *     register; always down while kiting/retreating (shield blocks sprint)
  *
- * State is stored on the bot instance: bot._defenceMode
+ * State is stored on the bot instance: bot._defenseMode
  */
 
 const { Movements, goals } = require('mineflayer-pathfinder');
@@ -37,7 +37,7 @@ const { Vec3 } = require('vec3');
 // --- Tuning -----------------------------------------------------------------
 
 const SCAN_INTERVAL_MS = 250;           // Tighter loop for crowd reactions
-const DEFENCE_RANGE = 16;               // Blocks — engage threats within
+const DEFENSE_RANGE = 16;               // Blocks — engage threats within
 const VIEW_DISTANCE = 24;               // Lose interest beyond
 const RECENT_ATTACKER_TTL_MS = 10_000;  // How long aggro'd neutrals stay flagged
 
@@ -677,9 +677,9 @@ function installShieldManager(bot, state) {
 
 // --- Main enable ------------------------------------------------------------
 
-function enableDefence(bot) {
-  if (bot._defenceMode?.active) {
-    return `Defence mode is already ON. Currently ${bot._defenceMode.currentTarget ? `fighting ${bot._defenceMode.currentTarget}` : 'scanning for hostiles'}.`;
+function enableDefense(bot) {
+  if (bot._defenseMode?.active) {
+    return `Defense mode is already ON. Currently ${bot._defenseMode.currentTarget ? `fighting ${bot._defenseMode.currentTarget}` : 'scanning for hostiles'}.`;
   }
 
   try { bot.pvp.stop(); } catch { /* ignore */ }
@@ -702,10 +702,10 @@ function enableDefence(bot) {
     lastPillarFailAt: 0,
     pillarHeight: 0,      // How many blocks we've pillared up so far
   };
-  bot._defenceMode = state;
+  bot._defenseMode = state;
 
   // Fire-and-forget: equip best generic weapon + shield asynchronously.
-  // The defence loop will re-equip with target-specific weapon once a threat
+  // The defense loop will re-equip with target-specific weapon once a threat
   // is identified (e.g. swap to Smite-V sword vs zombies).
   equipBestWeapon(bot, null, state).catch(() => {});
   equipShield(bot).catch(() => {});
@@ -731,7 +731,7 @@ function enableDefence(bot) {
     // pillarUp owns jump/look/equip/pvp/pathfinder while it runs.
     if (state.pillarInProgress) return;
 
-    const threats = listThreats(bot, DEFENCE_RANGE);
+    const threats = listThreats(bot, DEFENSE_RANGE);
     const swarmCount = threats.filter((t) => t.dist <= SWARM_RADIUS).length;
     const hp = bot.health;
 
@@ -901,12 +901,12 @@ function enableDefence(bot) {
     try { bot.setControlState('jump', false); } catch { /* ignore */ }
   };
 
-  return 'Defence mode ON. Auto-fighting hostile mobs with swarm/kite/retreat tactics. Use defence_mode(enabled=false) to disable.';
+  return 'Defense mode ON. Auto-fighting hostile mobs with swarm/kite/retreat tactics. Use defense_mode(enabled=false) to disable.';
 }
 
-function disableDefence(bot) {
-  if (!bot._defenceMode?.active) return 'Defence mode is already OFF.';
-  const state = bot._defenceMode;
+function disableDefense(bot) {
+  if (!bot._defenseMode?.active) return 'Defense mode is already OFF.';
+  const state = bot._defenseMode;
   state.active = false;
   if (state.interval) {
     clearInterval(state.interval);
@@ -920,40 +920,40 @@ function disableDefence(bot) {
   state.mode = 'SOLO';
   state.pillarHeight = 0;
   state.pillarInProgress = false;
-  return 'Defence mode OFF. Stopped auto-attacking.';
+  return 'Defense mode OFF. Stopped auto-attacking.';
 }
 
 module.exports = function ({ goals: _goals, Movements: _Movements }) {
   return {
-    name: 'defence_mode',
+    name: 'defense_mode',
     description:
-      'Toggle automatic self-defence mode. When ON, the bot fights hostile mobs ' +
+      'Toggle automatic self-defense mode. When ON, the bot fights hostile mobs ' +
       'using situation-aware tactics: 1-on-1 melee, swarm-pillar (build up out of reach), ' +
       'swarm-kite (hit-and-run), or retreat (when HP is low). Auto-selects the best ' +
       'weapon for each target (Smite vs undead, Bane vs spiders, Sharpness otherwise) ' +
       'and re-equips on target switch or if the weapon is about to break. Auto-equips ' +
       'shield in off-hand, jumps for critical hits, raises shield against archers and ' +
-      'melee threats, and eats food mid-combat when safe. Use defence_mode(enabled=false) ' +
+      'melee threats, and eats food mid-combat when safe. Use defense_mode(enabled=false) ' +
       'to disable.',
     parameters: {
       type: 'object',
       properties: {
         enabled: {
           type: 'boolean',
-          description: 'true to enable defence mode, false to disable.',
+          description: 'true to enable defense mode, false to disable.',
         },
       },
       required: ['enabled'],
     },
     async execute(args, ctx) {
       const bot = ctx.bot;
-      if (!bot.pvp) return 'Error: PVP plugin is not loaded. Cannot use defence mode.';
+      if (!bot.pvp) return 'Error: PVP plugin is not loaded. Cannot use defense mode.';
 
-      // Soft warning when disabling defence while threats are nearby — the LLM
+      // Soft warning when disabling defense while threats are nearby — the LLM
       // was repeatedly turning autopilot off mid-fight in earlier sessions.
       // We still honour the call (the user might want manual control), but
       // surface the consequence.
-      if (args.enabled === false && bot._defenceMode?.active) {
+      if (args.enabled === false && bot._defenseMode?.active) {
         const here = bot.entity.position;
         let nearby = 0;
         let nearest = null;
@@ -968,18 +968,18 @@ module.exports = function ({ goals: _goals, Movements: _Movements }) {
         }
         if (nearby > 0 && nearest) {
           const nName = nearest.name || nearest.displayName || 'unknown';
-          const result = disableDefence(bot);
-          return `${result} Warning: ${nearby} hostile${nearby > 1 ? 's' : ''} still within 16m (closest: ${nName} ${Math.round(nearestDist)}m). You are now exposed — re-enable with defence_mode(enabled=true) or fight manually with attack_entity.`;
+          const result = disableDefense(bot);
+          return `${result} Warning: ${nearby} hostile${nearby > 1 ? 's' : ''} still within 16m (closest: ${nName} ${Math.round(nearestDist)}m). You are now exposed — re-enable with defense_mode(enabled=true) or fight manually with attack_entity.`;
         }
       }
 
-      return args.enabled === true ? enableDefence(bot) : disableDefence(bot);
+      return args.enabled === true ? enableDefense(bot) : disableDefense(bot);
     },
   };
 };
 
-module.exports.enableDefence = enableDefence;
-module.exports.disableDefence = disableDefence;
+module.exports.enableDefense = enableDefense;
+module.exports.disableDefense = disableDefense;
 module.exports.markRecentAttacker = markRecentAttacker;
 module.exports.isThreat = isThreat;
 module.exports.equipBestWeapon = equipBestWeapon;
