@@ -81,10 +81,8 @@ const SHIELD_MELEE_RADIUS = 4;          // Raise shield if melee threat within t
 const SHIELD_LOWER_MS = 120;            // Lower shield this long before a swing
 const RANGED_ATTACKER_NAMES = new Set([
   'skeleton', 'stray', 'wither_skeleton',
-  'pillager', 'piglin',
+  'pillager', 'piglin', 'blaze', 'ghast',
 ]);
-// blaze/ghast use fireballs — shield helps but they also burn from below
-// players can be ranged too but we can't know without arrow tracking
 
 // --- Recent attacker tracking -----------------------------------------------
 
