@@ -116,6 +116,19 @@ module.exports = function () {
         return `Already holding ${heldItem.name} (x${heldItem.count}) in hand.`;
       }
 
+      // Soft warning: holding a non-weapon while in combat means defence_mode
+      // will fight bare-handed (or it will fight you for control of the slot).
+      const isCurrentWeapon = heldItem &&
+        (heldItem.name.endsWith('_sword') || heldItem.name.endsWith('_axe'));
+      const isNewWeapon = itemName.endsWith('_sword') || itemName.endsWith('_axe') ||
+        itemName === 'sword' || itemName === 'axe';
+      let combatWarning = '';
+      if (isCurrentWeapon && !isNewWeapon && bot._defenceMode?.active) {
+        combatWarning =
+          `Warning: defence_mode is active and you're swapping from ${heldItem.name} to ${itemName}. ` +
+          `Combat may suffer — defence_mode re-equips a weapon every tick, so this swap may flicker. `;
+      }
+
       // --- Find the item in inventory ---
       const invItems = bot.inventory.items();
       const match = findBestMatch(invItems, itemName);
@@ -140,7 +153,7 @@ module.exports = function () {
           const hotbarIndex = slot - hotbarStart;
           await bot.setQuickBarSlot(hotbarIndex);
           const matchLabel = match.name === itemName ? match.name : `${match.name} (matched "${args.item}")`;
-          return `Switched to hotbar slot ${hotbarIndex + 1}, now holding ${matchLabel} (x${match.count}).`;
+          return `${combatWarning}Switched to hotbar slot ${hotbarIndex + 1}, now holding ${matchLabel} (x${match.count}).`;
         }
       }
 
@@ -148,7 +161,7 @@ module.exports = function () {
       try {
         await bot.equip(match, 'hand');
         const matchLabel = match.name === itemName ? match.name : `${match.name} (matched "${args.item}")`;
-        return `Now holding ${matchLabel} (x${match.count}) in hand.`;
+        return `${combatWarning}Now holding ${matchLabel} (x${match.count}) in hand.`;
       } catch (err) {
         return `Failed to hold ${match.name}: ${err.message}`;
       }

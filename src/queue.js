@@ -25,6 +25,14 @@ class CommandQueue {
     try {
       while (this.pending.length > 0) {
         const batch = this.pending.splice(0, this.pending.length);
+        // Fire any per-event consume hooks BEFORE the handler runs, so that
+        // event producers (e.g. damage aggregator) can reset their state and
+        // start a fresh aggregation window for any subsequent damage.
+        for (const ev of batch) {
+          if (typeof ev._onConsume === 'function') {
+            try { ev._onConsume(); } catch { /* ignore */ }
+          }
+        }
         try {
           await this.handler(batch);
         } catch (err) {

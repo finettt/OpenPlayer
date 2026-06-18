@@ -189,9 +189,10 @@ module.exports = function () {
           itemToConsume.name === 'enchanted_golden_apple' ||
           itemToConsume.name === 'chorus_fruit';
         if (isFood && !isSpecialFood) {
-          return `Cannot eat ${itemToConsume.name} — hunger is already full (20/20). ` +
-            'Only golden apples, chorus fruit, or potions can be consumed at full hunger.\n' +
-            formatStatus(bot);
+          // Terse one-liner — the agent was repeatedly calling consume at full
+          // hunger and getting a 3-line lecture back every time. The bot
+          // auto-eats via defence_mode when needed, so this is rarely useful.
+          return `Skipped: hunger full (${bot.food}/20). Food regenerates HP automatically — no need to eat now.`;
         }
       }
 
