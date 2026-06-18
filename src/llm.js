@@ -10,7 +10,6 @@ class LLMClient {
       baseURL: this.config.baseURL,
       apiKey: this.config.apiKey,
       timeout: this.config.requestTimeoutMs,
-      logLevel: 'debug'
     });
   }
 
