@@ -17,6 +17,10 @@
 // Default attack range (blocks). The pvp plugin handles pathfinding + attack
 // distance, but we use this for the initial range check to give early feedback.
 const DEFAULT_ATTACK_RANGE = 6;
+// Range cap for `nearest*` selectors. Without this the bot can target an
+// enderman 35m away when the LLM asks for "nearest_hostile" but really
+// meant "the zombie that's hitting me right now".
+const NEAREST_SELECTOR_MAX_DIST = 24;
 
 /**
  * Resolve an entity from the given target selector.
@@ -26,14 +30,15 @@ function resolveTarget(bot, target, typeFilter) {
   const pos = bot.entity.position;
   const filter = (typeFilter ?? '').toLowerCase();
 
-  // Helper: find nearest entity matching a predicate
-  const findNearest = (pred) => {
+  // Helper: find nearest entity matching a predicate, optionally capped by range
+  const findNearest = (pred, maxDist = Infinity) => {
     let best = null;
     let bestDist = Infinity;
     for (const entity of Object.values(bot.entities)) {
       if (entity === bot.entity || !entity.position) continue;
       if (!pred(entity)) continue;
       const dist = entity.position.distanceTo(pos);
+      if (dist > maxDist) continue;
       if (dist < bestDist) {
         bestDist = dist;
         best = entity;
@@ -58,21 +63,21 @@ function resolveTarget(bot, target, typeFilter) {
     else if (filter === 'mob') pred = (e) => e.type === 'hostile' || e.type === 'passive';
     else pred = () => true;
 
-    const result = findNearest(pred);
+    const result = findNearest(pred, NEAREST_SELECTOR_MAX_DIST);
     if (!result) return null;
     const name = result.entity.name || result.entity.displayName || 'unknown';
     return { entity: result.entity, label: `${name} (${Math.round(result.dist)}m)` };
   }
 
   if (lower === 'nearest_hostile') {
-    const result = findNearest((e) => e.type === 'hostile');
+    const result = findNearest((e) => e.type === 'hostile', NEAREST_SELECTOR_MAX_DIST);
     if (!result) return null;
     const name = result.entity.name || result.entity.displayName || 'unknown';
     return { entity: result.entity, label: `${name} (${Math.round(result.dist)}m)` };
   }
 
   if (lower === 'nearest_passive') {
-    const result = findNearest((e) => e.type === 'passive');
+    const result = findNearest((e) => e.type === 'passive', NEAREST_SELECTOR_MAX_DIST);
     if (!result) return null;
     const name = result.entity.name || result.entity.displayName || 'unknown';
     return { entity: result.entity, label: `${name} (${Math.round(result.dist)}m)` };
@@ -156,6 +161,24 @@ module.exports = function ({ goals, Movements }) {
       const { entity, label } = resolved;
       const dist = entity.position.distanceTo(bot.entity.position);
 
+      // Soft notice: if defense_mode is already handling this fight, the LLM
+      // is probably wasting a turn. We still proceed (LLM might want to
+      // re-target on purpose), but make sure it knows what's going on.
+      const defenseActive = !!bot._defenseMode?.active;
+      const defenseBusyOnHostile = defenseActive
+        && bot.pvp?.target?.isValid
+        && bot.pvp.target.type === 'hostile';
+      let defenseNotice = '';
+      if (defenseBusyOnHostile) {
+        const cur = bot.pvp.target;
+        const curName = cur.name || cur.displayName || 'unknown';
+        const curDist = Math.round(cur.position.distanceTo(bot.entity.position));
+        defenseNotice =
+          `Note: defense_mode is already attacking ${curName} (${curDist}m). ` +
+          `Calling attack_entity here will override its target to ${label}. ` +
+          `If that wasn't intended, you can let defense_mode handle combat itself. `;
+      }
+
       // Early range warning — the pvp plugin will pathfind, but if they're
       // very far away it's better to inform the agent up front.
       if (dist > 48) {
@@ -169,11 +192,23 @@ module.exports = function ({ goals, Movements }) {
         }
       } catch { /* ignore */ }
 
-      // Configure pvp movements
+      // Configure pvp movements. Cache the Movements instance on the bot —
+      // constructing a new one allocates the full block-cost table every call,
+      // which is wasteful when combat is re-engaged frequently.
       try {
-        const movements = new Movements(bot);
-        bot.pvp.movements = movements;
+        if (!bot._combatMovements) {
+          bot._combatMovements = new Movements(bot);
+        }
+        bot.pvp.movements = bot._combatMovements;
       } catch { /* ignore if already set */ }
+
+      // Auto-select the best weapon for this target (Smite vs undead, Bane vs
+      // arthropods, otherwise highest Sharpness/tier). Shares logic with
+      // defense_mode so behaviour is consistent across the two entry points.
+      try {
+        const { equipBestWeapon } = require('./defense_mode');
+        await equipBestWeapon(bot, entity);
+      } catch { /* fall back to whatever is in hand */ }
 
       // Attack the entity
       try {
@@ -190,9 +225,9 @@ module.exports = function ({ goals, Movements }) {
         const heldItem = bot.inventory.slots[bot.QUICK_BAR_START + bot.quickBarSlot];
         const weapon = heldItem ? heldItem.name : 'bare hand';
 
-        return `Attacking ${label} with ${weapon}. ` +
+        return `${defenseNotice}Attacking ${label} with ${weapon}. ` +
           `Distance: ${Math.round(dist)}m. ` +
-          `The bot will pursue and attack until the target dies, you call attack_entity again, or you call defence_mode(off).`;
+          `The bot will pursue and attack until the target dies, you call attack_entity again, or you call defense_mode(off).`;
       } catch (err) {
         return `Failed to attack ${label}: ${err.message}`;
       }

@@ -10,6 +10,7 @@ const deps = { vec3, goals, Movements };
 const sendMessage = require('./send_message')(deps);
 const endLoop = require('./end_loop')();
 const findBlock = require('./find_block')();
+const findEntity = require('./find_entity')();
 const takeScreenshot = require('./take_screenshot')();
 const lookAtPlayer = require('./look_at_player')();
 const getSurroundings = require('./get_surroundings')();
@@ -52,7 +53,7 @@ const gotoPlayer = require('./goto_player')(deps);
 const collectDrops = require('./collect_drops')(deps);
 const mineBlockType = require('./mine_block_type')(deps);
 const attackEntity = require('./attack_entity')(deps);
-const defenceMode = require('./defence_mode')(deps);
+const defenseMode = require('./defense_mode')(deps);
 
 const ALL_TOOLS = [
   sendMessage,
@@ -77,6 +78,7 @@ const ALL_TOOLS = [
   goToY,
   approach,
   findBlock,
+  findEntity,
   scanArea,
   lockView,
   cancelLockView,
@@ -96,7 +98,7 @@ const ALL_TOOLS = [
   consume,
   todo,
   attackEntity,
-  defenceMode,
+  defenseMode,
 ];
 
 function registerTools(registry, config) {

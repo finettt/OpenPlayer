@@ -44,7 +44,7 @@ minebot/
 | Vision | Screenshots via prismarine-viewer + headless Firefox |
 | Chat | Rate-limited chat, whispers, auto-response |
 | Movement | Pathfinding, go-to coords, follow players |
-| Combat | Auto-defence, attack entities, PVP |
+| Combat | Auto-defense, attack entities, PVP |
 | Crafting | 3×3 recipes, smelting, workbench auto-creation |
 | Inventory | Equip, hold, drop, consume food/potions |
 | Storage | Open chests, deposit/withdraw items |
@@ -100,7 +100,7 @@ Copy `.env.example` to `.env` and fill in your values. All settings fall back to
 **Vision:** `take_screenshot`, `look_at_player`, `get_surroundings`, `scan_area`
 **Movement:** `go_to`, `go_to_y`, `approach`, `find_block`, `move`, `jump`
 **Players:** `goto_player`, `follow_player`, `lock_view`
-**Combat:** `attack_entity`, `defence_mode`
+**Combat:** `attack_entity`, `defense_mode`
 **Crafting:** `create_workbench`, `craft`, `smelt`, `get_recipe`
 **Blocks:** `break_block`, `mine_block_type`, `place_block`, `interact`
 **Items:** `collect_drops`, `hold_item`, `equip`, `consume`, `drop_item`

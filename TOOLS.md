@@ -26,8 +26,8 @@
 - **cancel_lock_view** — Stop locking your view on a player.
 
 ## Combat
-- **attack_entity(target, type_filter?)** — Attack a nearby entity (mob or player). Target selectors: "nearest" (closest entity), "nearest_hostile", "nearest_passive", an entity name (e.g. "zombie", "skeleton", "blaze", "enderman", "cow"), or a player username. Use type_filter with "nearest" to narrow to "hostile", "passive", or "mob". The bot pursues and attacks with the best available weapon (or bare hand) until the target dies, you call attack_entity again, or you stop defence_mode. Returns an error if no matching entity is found or target is out of range (>48m).
-- **defence_mode(enabled)** — Toggle automatic self-defence mode. When enabled (true), the bot continuously fights the nearest hostile mob within 16 blocks, switching to closer targets if they appear. When disabled (false), stops auto-attacking. Use this to protect yourself without manually calling attack_entity for each threat.
+- **attack_entity(target, type_filter?)** — Attack a nearby entity (mob or player). Target selectors: "nearest" (closest entity), "nearest_hostile", "nearest_passive", an entity name (e.g. "zombie", "skeleton", "blaze", "enderman", "cow"), or a player username. Use type_filter with "nearest" to narrow to "hostile", "passive", or "mob". The bot pursues and attacks with the best available weapon (or bare hand) until the target dies, you call attack_entity again, or you stop defense_mode. Returns an error if no matching entity is found or target is out of range (>48m).
+- **defense_mode(enabled)** — Toggle automatic self-defense mode. When enabled (true), the bot continuously fights the nearest hostile mob within 16 blocks, switching to closer targets if they appear. When disabled (false), stops auto-attacking. Use this to protect yourself without manually calling attack_entity for each threat.
 
 ## Crafting & Smelting
 - **create_workbench** — Craft a crafting table from 4 planks and place it nearby. Needed for 3×3 recipes.
