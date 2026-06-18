@@ -57,6 +57,7 @@
 - **open_chest(radius?)** — Open a nearby chest and list its contents. Finds the closest chest within radius (default 16 blocks). Reports item names, counts, and slot usage. Must be within 5 blocks of the chest.
 - **deposit_item(item, count?, radius?)** — Deposit items from inventory into a nearby chest. Finds closest chest, opens it, and moves the specified item(s). Partial names work (e.g. "pickaxe" deposits best pickaxe). Count defaults to all matching items. Respects stack limits and chest capacity.
 - **withdraw_item(item, count?, radius?)** — Withdraw items from a nearby chest into inventory. Finds closest chest, opens it, and moves the specified item(s) into your inventory. Partial names work. Count defaults to as many as will fit. Returns error if item not in chest or inventory full.
+- **withdraw_from_container(item, count?, radius?, slot?)** — Withdraw items from any nearby container (chest, furnace, barrel, shulker box, dispenser, hopper). For regular containers, searches by item name. For furnaces, use the slot parameter to choose which slot: "output" (smelted items, default), "fuel" (remaining fuel), or "input" (raw items being smelted). Partial item names work. Count defaults to as many as will fit.
 
 ## Task Management
 - **todo(action, text?, id?, completed_only?)** — Manage a persistent task list for multi-step goals. Tasks survive restarts and are shown in your system prompt every reasoning step.
