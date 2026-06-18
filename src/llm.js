@@ -10,25 +10,29 @@ class LLMClient {
       baseURL: this.config.baseURL,
       apiKey: this.config.apiKey,
       timeout: this.config.requestTimeoutMs,
+      logLevel: 'debug'
     });
   }
 
-  async chat({ messages, tools, toolChoice = 'auto' }) {
+  async chat({ messages, tools, toolChoice = 'auto', signal }) {
     let lastError;
 
     for (const model of this.config.models) {
       for (let attempt = 1; attempt <= this.config.maxRetries; attempt++) {
+        if (signal?.aborted) throw new DOMException('LLM request aborted', 'AbortError');
         try {
           const response = await this.client.chat.completions.create({
             model,
             messages,
             ...(tools ? { tools, tool_choice: toolChoice } : {}),
             temperature: this.config.temperature,
+            signal,
           });
           const choice = response.choices?.[0];
           if (!choice?.message) throw new Error('Empty response from model');
           return choice.message;
         } catch (err) {
+          if (err.name === 'AbortError') throw err;
           lastError = err;
           const delay = Math.min(1000 * 2 ** (attempt - 1), 15_000);
           this.log.warn(

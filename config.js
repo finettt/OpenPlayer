@@ -40,6 +40,7 @@ module.exports = {
   },
 
   agent: {
+    mode: env('AGENT_MODE', 'steer'), // 'queue' or 'steer'
     heartbeat: {
       enabled: env('HEARTBEAT', 'true') === 'true',
       intervalMs: 5 * 60_000,
