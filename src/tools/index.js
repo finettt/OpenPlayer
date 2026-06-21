@@ -54,6 +54,7 @@ const collectDrops = require('./collect_drops')(deps);
 const mineBlockType = require('./mine_block_type')(deps);
 const attackEntity = require('./attack_entity')(deps);
 const defenseMode = require('./defense_mode')(deps);
+const bowAttack = require('./bow_attack')();
 
 const ALL_TOOLS = [
   sendMessage,
@@ -99,6 +100,7 @@ const ALL_TOOLS = [
   todo,
   attackEntity,
   defenseMode,
+  bowAttack,
 ];
 
 function registerTools(registry, config) {
