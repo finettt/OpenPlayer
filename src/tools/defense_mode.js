@@ -1022,6 +1022,102 @@ function findFood(bot) {
   return foods[0];
 }
 
+// ===== Bow helpers ===========================================================
+
+/**
+ * Find the best bow in inventory (crossbow > bow).
+ */
+function findBestBow(bot) {
+  const items = bot.inventory.items();
+  for (const name of ['crossbow', 'bow']) {
+    const found = items.filter(i => i.name === name);
+    if (found.length > 0) return found[0];
+  }
+  return null;
+}
+
+/**
+ * Count arrows in inventory (all arrow types).
+ */
+function countArrows(bot) {
+  const arrowNames = new Set(['arrow', 'spectral_arrow', 'tipped_arrow']);
+  let total = 0;
+  for (const item of bot.inventory.items()) {
+    if (arrowNames.has(item.name)) total += item.count;
+  }
+  return total;
+}
+
+/**
+ * Check if the bot has a bow and at least 1 arrow to use it.
+ */
+function hasBowAndAmmo(bot) {
+  if (!findBestBow(bot)) return false;
+  return countArrows(bot) >= 1;
+}
+
+/**
+ * Check if an item has the Infinity enchantment.
+ */
+function hasInfinity(item) {
+  if (!item) return false;
+  const enchants = item.enchants ?? [];
+  for (const e of enchants) {
+    if (e.id === 51 || e.name === 'infinity') return true;
+  }
+  try {
+    const nbt = item.nbt?.value;
+    const enchantList = nbt?.Enchant ?? nbt?.ench ?? [];
+    for (const entry of enchantList) {
+      const id = entry.id?.value ?? entry.id;
+      if (id === 51) return true;
+    }
+  } catch { /* ignore */ }
+  return false;
+}
+
+/**
+ * Calculate an aim point above the target to compensate for arrow drop and
+ * target movement. Uses iterative leading + gravity compensation.
+ *
+ * @param {object} bot - Mineflayer bot instance
+ * @param {Vec3} targetPos - Target center position
+ * @param {object} targetVel - Target velocity { x, y, z }
+ * @returns {Vec3} 3D point to aim at
+ */
+function calculateBowAim(bot, targetPos, targetVel) {
+  const eyePos = bot.entity.position.offset(0, BOW_EYE_HEIGHT, 0);
+  const dx = targetPos.x - eyePos.x;
+  const dz = targetPos.z - eyePos.z;
+  const hDist = Math.sqrt(dx * dx + dz * dz);
+  if (hDist < 0.5) return targetPos.offset(0, 1, 0); // too close, aim slightly above
+
+  const vx = targetVel?.x ?? 0;
+  const vz = targetVel?.z ?? 0;
+  const vy = targetVel?.y ?? 0;
+
+  // Iteratively solve for flight time and lead
+  let flightTime = hDist / BOW_EFFECTIVE_SPEED;
+  let predictedX = targetPos.x + vx * flightTime;
+  let predictedZ = targetPos.z + vz * flightTime;
+
+  for (let i = 0; i < 3; i++) {
+    const pdx = predictedX - eyePos.x;
+    const pdz = predictedZ - eyePos.z;
+    const pHDist = Math.sqrt(pdx * pdx + pdz * pdz);
+    flightTime = Math.max(pHDist / BOW_EFFECTIVE_SPEED, 0.05);
+    predictedX = targetPos.x + vx * flightTime;
+    predictedZ = targetPos.z + vz * flightTime;
+  }
+
+  // Gravity drop compensation (+15% drag adjustment per second of flight)
+  const gravity = 20; // blocks/s²
+  const dragFactor = 1 + flightTime * 0.15;
+  const drop = 0.5 * gravity * flightTime * flightTime * dragFactor;
+
+  return new Vec3(predictedX, targetPos.y + drop + vy * flightTime, predictedZ);
+}
+
 // --- Strategies -------------------------------------------------------------
 
 /**
@@ -1296,7 +1392,13 @@ function installShieldManager(bot, state) {
       return;
     }
 
-    // Shield durability management: auto-swap at critical durability
+// Don't raise shield while drawing a bow (conflicts with main-hand use)
+    if (state.bowState === 'drawing') {
+      lower();
+      return;
+    }
+
+// Shield durability management: auto-swap at critical durability
     trySwapShield(bot);
     const dur = getShieldDurability(bot);
 
@@ -1418,6 +1520,11 @@ function enableDefense(bot) {
     pillarInProgress: false,
     lastPillarFailAt: 0,
     pillarHeight: 0,      // How many blocks we've pillared up so far
+    // Bow state machine
+    bowState: 'idle',     // 'idle' | 'drawing'
+    bowDrawStartAt: 0,
+    bowLastShotAt: 0,
+    bowTargetId: null,
   };
   bot._defenseMode = state;
 
@@ -1619,6 +1726,71 @@ function enableDefense(bot) {
     }
 
     // ---- SOLO -------------------------------------------------------------
+    const canBow = hasBowAndAmmo(bot);
+    const meleeThreatClose = threats.some(t => t.dist < BOW_MELEE_FORCE);
+    const targetFarEnough = nearest.dist >= BOW_RANGED_THRESHOLD;
+    const useBow = canBow && targetFarEnough && !meleeThreatClose;
+
+    // === Handle ongoing bow draw ===
+    if (state.bowState === 'drawing') {
+      if (!useBow || !nearest.entity.isValid) {
+        // Abort: fire partially-charged arrow and switch to melee
+        try { bot.deactivateItem(); } catch { /* ignore */ }
+        state.bowState = 'idle';
+        state.bowLastShotAt = Date.now();
+        // Fall through to melee below
+      } else if (Date.now() - state.bowDrawStartAt >= BOW_CHARGE_TIME_MS) {
+        // Full charge — fire!
+        try { bot.deactivateItem(); } catch { /* ignore */ }
+        state.bowState = 'idle';
+        state.bowLastShotAt = Date.now();
+        state.currentTarget = nearest.entity.name || 'unknown';
+        // Re-equip shield after firing
+        if (!hasShieldInOffHand(bot)) {
+          equipShield(bot).catch(() => {});
+        }
+        return;
+      } else {
+        // Still charging — refresh aim for moving targets
+        try {
+          const halfH = (nearest.entity.height ?? 1.8) / 2;
+          const tc = nearest.entity.position.offset(0, halfH, 0);
+          const aimPos = calculateBowAim(bot, tc, nearest.entity.velocity || {});
+          await bot.lookAt(aimPos, true);
+        } catch { /* ignore */ }
+        state.currentTarget = nearest.entity.name || 'unknown';
+        return;
+      }
+    }
+
+    // === Start a new bow draw ===
+    if (useBow && state.bowState === 'idle') {
+      if (Date.now() - state.bowLastShotAt < BOW_SHOT_COOLDOWN_MS) {
+        return; // on cooldown
+      }
+      // Stop any ongoing melee engagement
+      if (bot.pvp.target) {
+        try { bot.pvp.stop(); } catch { /* ignore */ }
+      }
+      const bow = findBestBow(bot);
+      if (bow) {
+        try {
+          await bot.equip(bow, 'hand');
+          const halfH = (nearest.entity.height ?? 1.8) / 2;
+          const tc = nearest.entity.position.offset(0, halfH, 0);
+          const aimPos = calculateBowAim(bot, tc, nearest.entity.velocity || {});
+          await bot.lookAt(aimPos, true);
+          bot.activateItem();
+          state.bowState = 'drawing';
+          state.bowDrawStartAt = Date.now();
+          state.bowTargetId = nearest.entity.id;
+          state.currentTarget = nearest.entity.name || 'unknown';
+        } catch { /* ignore */ }
+      }
+      return;
+    }
+
+    // ===== MELEE MODE =====
     if (bot.pvp.target) {
       const t = bot.pvp.target;
       if (!t.isValid) {
@@ -1686,11 +1858,12 @@ function enableDefense(bot) {
   };
 
   const shieldMissing = !bot.inventory.items().some(i => i.name === 'shield');
-  const baseMsg = 'Defense mode ON. Auto-fighting hostile mobs with swarm/kite/retreat tactics, creeper escape, fireball dodge, and arrow jump-strafe.';
+  const baseMsg = 'Defense mode ON. Auto-fighting hostile mobs — melee/bow hybrid with swarm/kite/retreat tactics, creeper escape, fireball dodge, and arrow jump-strafe.';
   if (shieldMissing) {
     return `${baseMsg} WARNING: No shield in inventory — arrow/fireball defense severely limited. Craft a shield (1 iron ingot + 6 planks) and equip it to off-hand.`;
   }
   return `${baseMsg} Shield raised in off-hand. Use defense_mode(enabled=false) to disable.`;
+
 }
 
 function disableDefense(bot) {
@@ -1709,6 +1882,10 @@ function disableDefense(bot) {
   state.mode = 'SOLO';
   state.pillarHeight = 0;
   state.pillarInProgress = false;
+  state.bowState = 'idle';
+  state.bowDrawStartAt = 0;
+  state.bowLastShotAt = 0;
+  state.bowTargetId = null;
   return 'Defense mode OFF. Stopped auto-attacking.';
 }
 
@@ -1789,3 +1966,8 @@ module.exports.hasTotemInInventory = hasTotemInInventory;
 module.exports.findGoldenApple = findGoldenApple;
 module.exports.getShieldDurability = getShieldDurability;
 module.exports.trySwapShield = trySwapShield;
+module.exports.findBestBow = findBestBow;
+module.exports.countArrows = countArrows;
+module.exports.hasBowAndAmmo = hasBowAndAmmo;
+module.exports.hasInfinity = hasInfinity;
+module.exports.calculateBowAim = calculateBowAim;
