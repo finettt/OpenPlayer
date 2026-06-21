@@ -253,6 +253,19 @@ function createBot() {
   bot.once('spawn', async () => {
     reconnectAttempts = 0;
     log.info('Bot joined the server!');
+
+    // If the bot spawns in the Nether, enable defense mode immediately
+    const spawnDim = bot.game?.dimension ?? '';
+    if ((spawnDim.includes('nether') || spawnDim === 'minecraft:the_nether') &&
+        bot.pvp && !bot._defenseMode?.active) {
+      try {
+        enableDefense(bot);
+        log.info('Defense mode auto-enabled — initial spawn in Nether');
+      } catch (err) {
+        log.error(`Auto-defense enable (Nether spawn) failed: ${err.message}`);
+      }
+    }
+
     try {
       await camera.init(bot);
     } catch (err) {
@@ -366,6 +379,23 @@ function createBot() {
   // Death and respawn — without these the LLM hallucinates "I survived" after
   // its HP went to 0 and it respawned somewhere else with full bars. We push
   // an explicit, high-signal message so the model knows the run reset.
+  // Auto-enable defense mode in the Nether — it's inherently dangerous there
+  // (ghasts, blazes, wither skeletons, piglins). Trigger on game state changes
+  // which fire when the bot's dimension changes (portal travel, respawn).
+  bot.on('game', () => {
+    const dim = bot.game?.dimension ?? '';
+    if (dim.includes('nether') || dim === 'minecraft:the_nether') {
+      if (bot.pvp && !bot._defenseMode?.active) {
+        try {
+          enableDefense(bot);
+          log.info('Defense mode auto-enabled — bot entered the Nether');
+        } catch (err) {
+          log.error(`Auto-defense enable (Nether) failed: ${err.message}`);
+        }
+      }
+    }
+  });
+
   bot.on('death', () => {
     // Capture death context BEFORE the respawn wipes positional state.
     const deathPos = bot.entity ? bot.entity.position.clone() : null;
