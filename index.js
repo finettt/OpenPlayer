@@ -252,12 +252,11 @@ function createBot() {
 
   bot.once('spawn', async () => {
     reconnectAttempts = 0;
-    log.info('Bot joined the server!');
+    bot._dimension = bot.game?.dimension?.replace('minecraft:', '') ?? 'overworld';
+    log.info(`Bot joined the server in dimension: ${bot._dimension}`);
 
     // If the bot spawns in the Nether, enable defense mode immediately
-    const spawnDim = bot.game?.dimension ?? '';
-    if ((spawnDim.includes('nether') || spawnDim === 'minecraft:the_nether') &&
-        bot.pvp && !bot._defenseMode?.active) {
+    if (bot._dimension === 'the_nether' && bot.pvp && !bot._defenseMode?.active) {
       try {
         enableDefense(bot);
         log.info('Defense mode auto-enabled — initial spawn in Nether');
@@ -265,7 +264,6 @@ function createBot() {
         log.error(`Auto-defense enable (Nether spawn) failed: ${err.message}`);
       }
     }
-
     try {
       await camera.init(bot);
     } catch (err) {
@@ -274,7 +272,8 @@ function createBot() {
     session.push({
       role: 'user',
       content:
-        '[SYSTEM]: You have joined the server. Idle until a player talks to you, ' +
+        `[SYSTEM]: You have joined the server (${bot._dimension}). ` +
+        'Idle until a player talks to you, ' +
         'BUT always act to preserve your own life and recover from emergencies: ' +
         'fight or flee from hostiles, eat when hungry, pillar up if swarmed, ' +
         'and after death — recover items if safe, then re-establish a safe base. ' +
@@ -399,7 +398,7 @@ function createBot() {
   bot.on('death', () => {
     // Capture death context BEFORE the respawn wipes positional state.
     const deathPos = bot.entity ? bot.entity.position.clone() : null;
-    const deathDim = bot.game?.dimension || 'unknown';
+    const deathDim = (bot.game?.dimension?.replace('minecraft:', '') ?? 'unknown');
     const deathTime = bot.time?.timeOfDay ?? null;
     // Last attacker / damage context comes from the aggregator
     const cause = _damage.lastAttacker
@@ -411,6 +410,14 @@ function createBot() {
       .sort((a, b) => b[1] - a[1])
       .map(([n, c]) => c > 1 ? `${n}×${c}` : n)
       .join(', ') || (_damage.envHits > 0 ? 'environment' : 'unknown');
+
+    // Dimension-specific death context
+    let dimAdvice = '';
+    if (deathDim === 'the_nether') {
+      dimAdvice = ' Items may have fallen into lava and be unrecoverable. ';
+    } else if (deathDim === 'the_end') {
+      dimAdvice = ' Items may have fallen into the void and are lost. ';
+    }
 
     // Remember for the respawn message
     bot._lastDeath = {
@@ -440,7 +447,7 @@ function createBot() {
       type: 'event',
       source: 'death',
       content:
-        `[SYSTEM]: YOU DIED. Cause: ${cause}. Recent damage: {${lastAttackers}}. ` +
+        `[SYSTEM]: YOU DIED in ${deathDim}. Cause: ${cause}. Recent damage: {${lastAttackers}}. ` +
         `Death location: ${posStr} in ${deathDim}. ` +
         `Death count this session: ${bot._deathCount}. ` +
         `You will respawn shortly. Inventory may be dropped at the death location ` +
@@ -449,51 +456,100 @@ function createBot() {
         `do NOT claim you "survived" or "escaped"; you actually died. ` +
         `Treat respawn as a hard reset: re-orient (get_surroundings), ` +
         `recover items if you can reach the death point safely (else abandon them), ` +
-        `then re-establish basic survival (food, tools, shelter) BEFORE returning to that area.`,
+        `then re-establish basic survival (food, tools, shelter) BEFORE returning to that area.` +
+        dimAdvice,
     });
   });
 
   bot.on('respawn', () => {
-    const last = bot._lastDeath;
-    if (!last) {
-      // Initial spawn or reconnection — not a death respawn
-      return;
-    }
+    const newDim = bot.game?.dimension?.replace('minecraft:', '') ?? 'unknown';
+    const oldDim = bot._dimension ?? 'overworld';
     const newPos = bot.entity ? bot.entity.position : null;
     const newPosStr = newPos
       ? `(${Math.round(newPos.x)}, ${Math.round(newPos.y)}, ${Math.round(newPos.z)})`
       : 'unknown';
+
+    // ── Portal travel (dimension change without death) ────────────────
+    const last = bot._lastDeath;
+    if (!last) {
+      // Initial spawn / reconnection also land here — skip those.
+      if (bot._dimension && newDim !== oldDim) {
+        log.info(`Dimension change: ${oldDim} → ${newDim}`);
+        const ratio = newDim === 'the_nether' ? '1:8' : '8:1';
+        queue.push({
+          type: 'event',
+          source: 'dimension_change',
+          content:
+            `[SYSTEM]: Dimension changed: ${oldDim} → ${newDim}. ` +
+            `Now at ${newPosStr}. ` +
+            `Horizontal distance ratio is ${ratio} with the other dimension. ` +
+            (newDim === 'the_nether'
+              ? 'CRITICAL RULES for the Nether: never place beds (they explode), ' +
+                'water evaporates (bucket is useless), lava flows 2× farther, ' +
+                'always carry flint_and_steel (ghasts can destroy portals), ' +
+                'and use scan_area to find nether fortresses for blaze rods.'
+              : oldDim === 'the_nether'
+                ? 'You are back in the Overworld. Water works again, beds are safe ' +
+                  'again, and you can use the coordinate ratio to navigate back to ' +
+                  'your base (divide Nether coords by 8).'
+                : '') +
+            ' Your previous goals may need re-evaluating in this new dimension.',
+        });
+      }
+      bot._dimension = newDim;
+      return;
+    }
+
+    // ── Death respawn ─────────────────────────────────────────────────
     const oldPosStr = last.pos
       ? `(${Math.round(last.pos.x)}, ${Math.round(last.pos.y)}, ${Math.round(last.pos.z)})`
       : 'unknown';
+
     // Compute drift between death and respawn
     let driftNote = '';
-    if (newPos && last.pos && last.dimension === (bot.game?.dimension || 'unknown')) {
+    const sameDim = last.dimension === newDim;
+    if (newPos && last.pos && sameDim) {
       const dx = newPos.x - last.pos.x;
       const dz = newPos.z - last.pos.z;
       const drift = Math.hypot(dx, dz);
       driftNote = drift > 4
         ? ` Respawn is ${Math.round(drift)}m from death point.`
         : ' Respawn is near the death point.';
+    } else if (!sameDim) {
+      driftNote = ` Death was in ${last.dimension}, respawn in ${newDim} — cross-dimension death.`;
     } else {
       driftNote = ' Dimension/world may have changed.';
     }
+
     const itemsHint = last.inventoryWasNonEmpty
-      ? ` Items may still be at ${oldPosStr} (despawn in ~5 minutes) — consider recovering them if safe.`
+      ? ` Items may still be at ${oldPosStr} in ${last.dimension} (despawn in ~5 minutes) — consider recovering them if safe.`
       : '';
+
+    // Nether-specific death context
+    let netherNote = '';
+    if (last.dimension === 'the_nether') {
+      netherNote = ' Died in the Nether — items may have fallen into lava. ';
+      if (newDim !== 'the_nether') {
+        netherNote += 'You respawned in the Overworld (no bed in Nether) — cannot reach items in time. ';
+      }
+    }
 
     queue.push({
       type: 'event',
       source: 'respawn',
       content:
-        `[SYSTEM]: Respawned at ${newPosStr} after dying to ${last.attackers}.` +
+        `[SYSTEM]: YOU DIED in ${last.dimension}. Cause: ${last.cause}. ` +
+        `Recent damage: {${last.attackers}}. ` +
+        `Death location: ${oldPosStr} in ${last.dimension}. ` +
+        `Respawned at: ${newPosStr} in ${newDim}. ` +
+        `Death count: ${bot._deathCount}.` +
+        netherNote +
         driftNote +
         itemsHint +
         ' HP/food are reset. Plan accordingly — your previous goals may need re-evaluating.',
     });
 
-    // Clear the death record so subsequent respawn events (e.g. reconnects)
-    // don't double-fire.
+    bot._dimension = newDim;
     bot._lastDeath = null;
   });
 
