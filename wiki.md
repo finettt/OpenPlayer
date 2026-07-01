@@ -219,13 +219,16 @@ Diamond ore: **Y = −64 to Y = 16**, peak at **Y = −59**. Veins of 1-4 blocks
 3. hold_item("water_bucket")         → hold water bucket
 4. interact(<block_near_lava>)       → place water next to lava → creates obsidian
 5. collect_drops()                   → pick up bucket after water placed
-6. mine_block_type("obsidian", 10)   → mine 10 obsidian (diamond pickaxe, ~10s per block)
-7. Build portal frame (4×5, corners optional = 10 obsidian minimum)
-8. craft("flint_and_steel")          → 1 iron ingot + 1 flint (from gravel)
-9. hold_item("flint_and_steel")
-10. interact(<portal_frame_block>)   → light the portal
-11. approach(<portal_block>) or go_to → step into portal
+6. mine_block_type("obsidian", 14)   → mine 14 obsidian (diamond pickaxe, ~10s per block)
+7. build_portal                      → builds frame + lights it in one step
+   — OR manually:
+   a. place_block 14 obsidian in a 4×5 frame
+   b. craft("flint_and_steel") if needed
+   c. hold_item("flint_and_steel") + interact on interior ground block
+8. approach(<portal_block>) or go_to → step into portal
 ```
+
+**build_portal:** The one-shot tool (`build_portal`) handles everything — frame construction, auto-crafting flint_and_steel if you have iron + flint, and lighting. Stand on flat ground and call it. If materials are missing it reports exactly what you need.
 
 ---
 
@@ -251,23 +254,47 @@ Diamond ore: **Y = −64 to Y = 16**, peak at **Y = −59**. Veins of 1-4 blocks
 | **Soul Sand Valley** | Skeletons, ghasts; soul sand slows movement | High |
 | **Basalt Deltas** | Magma cubes, jagged terrain | High |
 
-### Nether Fortress — Blazes
+### Finding the Fortress
+
+Nether fortresses generate along north-south axes in strips ~400 blocks apart. They're made of nether_bricks and contain blaze spawners.
+
+**Search strategy:**
+```
+1. find_block("nether_bricks", 100)   → check loaded chunks first
+2. If not found, pick a direction (north/south) and:
+   a. go_to(current_x + 100, current_y, current_z)  → walk 100 blocks
+   b. scan_area(64, "spawners") or find_block("nether_bricks", 100)
+   c. repeat until found, expanding search by 100 blocks each iteration
+   d. After 500+ blocks in one direction, try east/west
+      (fortresses run north-south; you'll cross one by going east-west)
+3. Once fortress found, remember() its coordinates
+```
+
+Fortress landmarks: nether_brick buildings, open corridors, blaze spawners (caged spawners in lava-lit rooms). If you see nether_bricks on scan_area, go toward them.
+
+### Blaze Combat
 
 **Goal:** Kill blazes for blaze rods → blaze powder.
 
 ```
-1. scan_area(64, "spawners")         → locate fortress / blaze spawner
-2. defense_mode(true)                → enable auto-defense
-3. attack_entity("blaze")            → attack blaze
-4. collect_drops()                   → collect blaze rods
-5. repeat until 10+ blaze rods
+1. equip("shield", "offhand")         → ALWAYS before engaging blazes
+2. equip("iron_sword") or better      → diamond_sword preferred
+3. defense_mode(true)                 → enables auto-aggro on hostiles
+4. approach(<blaze_spawner_coords>)   → get near the spawner room
+5. attack_entity("blaze")             → engage nearest blaze
+6. collect_drops()                    → pick up blaze rods
+7. repeat until 10+ blaze rods
 ```
 
-**Blaze combat:**
-- Shield blocks fireballs completely — keep `equip("shield", "offhand")`
-- Attack in melee when blaze isn't firing
-- Build 2-block-high ceiling for cover — blazes can't reach you under it
-- Fire Resistance potion makes the fight trivial
+**Critical tactics:**
+- **Shield blocks fireballs 100%** — keep it in off-hand at all times. A blaze fireball deals 9 damage (4.5 hearts) without a shield, and 0 with a successful block.
+- **Attack in melee when the blaze isn't firing** — blazes have a cooldown after each fireball. Rush in during the gap.
+- **2-block-high ceiling** — build cobblestone/dirt over your head. Blazes are 1.8 blocks tall and need 2 blocks of height to path toward you; with a 2-high ceiling they can't reach you but you can hit them.
+- **Kite them away from the spawner** — killing blazes near the spawner means more blazes spawn while you fight. Draw them into a corridor to thin the horde.
+- **Fire Resistance potion** makes the fight trivial — if you have magma cream + potion supplies, brew it before engaging.
+- **Avoid standing in lava** — fortress floors often have lava. Use scan_area("hazards") to check before engaging.
+- **Start with defense_mode on** — it auto-attacks the nearest hostile. If you're overwhelmed, retreat down a corridor and pillar up with place_block.
+- **Don't chase blazes over open lava** — let them come to you. If a blaze flies over lava, wait for it to return or find a better angle.
 
 ### Ender Pearls
 
@@ -554,10 +581,113 @@ Decorative biome with pink petals and cherry trees. Bees spawn frequently. No un
 |---|---|---|
 | **Day 1** | Wood → stone tools → food → shelter/bed → torches | `mine_block_type` → `craft` → `attack_entity` → `create_workbench` |
 | **Iron Age** | Mine Y=16 → smelt iron → iron tools/armor/shield | `go_to_y(16)` → `mine_block_type("iron_ore")` → `smelt` → `craft` → `equip` |
-| **Diamond Age** | Strip mine Y=−59 → diamond pickaxe → obsidian → portal | `go_to_y(-59)` → `mine_block_type("diamond_ore")` → `mine_block_type("obsidian")` |
-| **Nether** | Blazes → blaze rods → ender pearls | `attack_entity("blaze")` → `collect_drops` → trade/farm pearls |
+| **Diamond Age** | Strip mine Y=−59 → diamond pickaxe → obsidian → portal | `go_to_y(-59)` → `mine_block_type("diamond_ore")` → `mine_block_type("obsidian")` → `build_portal` |
+| **Nether** | Blazes → blaze rods → ender pearls | `build_portal` → `attack_entity("blaze")` → `collect_drops` → trade/farm pearls |
 | **Stronghold** | Eyes of Ender → locate → activate portal | `craft("ender_eye")` → throw & follow → `interact` portal frames |
 | **The End** | Destroy crystals → fight dragon → exit | `attack_entity` → `consume("best_food")` → `collect_drops` |
+
+---
+
+## Gathering Blaze Rods — Complete Walkthrough
+
+The full chain from a fresh world to blaze rods, tying all the above sections together:
+
+### Phase 1: Prep (Day 1 → Iron)
+
+```
+1. get_surroundings or scan_area         → pick a direction with trees
+2. Day 1 loop: wood → stone tools → food → shelter (see Day 1 section)
+3. Iron Age loop: mine Y=16 → smelt → iron pickaxe, sword, shield, full iron armor
+4. equip("shield", "offhand")            → permanent — never unequip
+5. todo add "gather 14+ obsidian"
+6. todo add "build nether portal"
+7. todo add "gather 10+ blaze rods"
+```
+
+### Phase 2: Obsidian (Diamond Pickaxe)
+
+```
+1. craft("iron_pickaxe")                 → need iron to mine diamonds
+2. go_to_y(-59)                          → diamond level
+3. mine_block_type("diamond_ore", 5)     → at least 3 for pickaxe + spare
+4. craft("diamond_pickaxe")              → 3 diamonds + 2 sticks
+5. find_block("lava", 30)                → find lava pool
+6. approach(lava_x, lava_y, lava_z)      → get close (not IN the lava)
+7. hold_item("water_bucket")             → water + lava = obsidian
+8. interact(near_lava_block)             → pour water over lava
+9. collect_drops()                       → pick up empty bucket
+10. mine_block_type("obsidian", 14)      → diamond pickaxe only!
+11. If < 14 obsidian: find more lava, repeat water-pouring
+```
+
+### Phase 3: Portal & Nether Entry
+
+```
+1. Find flat 5×5 area near your base
+2. get_inventory                       → verify: 14+ obsidian
+3. build_portal                        → builds frame + lights it
+   If no igniter:
+   a. mine_block_type("gravel")        → get flint (1/10 chance per gravel)
+   b. craft("flint_and_steel")         → 1 iron_ingot + 1 flint
+   c. hold_item("flint_and_steel")
+   d. interact with ground inside the portal frame → lights it
+4. remember("portal_coords: x, y, z in overworld")
+5. approach(portal_block) or go_to     → walk into the portal
+   → Dimension changes to the_nether automatically
+   → SYSTEM will print Nether rules on arrival
+```
+
+### Phase 4: Find the Fortress
+
+```
+1. get_surroundings                    → check spawn safety
+2. defense_mode(true)                  → ghasts, zombie piglins, etc.
+3. find_block("nether_bricks", 100)    → is fortress in loaded chunks?
+4. If not found — search pattern:
+   a. Remember starting coords: remember("nether_spawn: x, y, z")
+   b. Walk ~100 blocks east: go_to(spawn_x + 100, current_y, spawn_z)
+   c. scan_area(64, "spawners")        → check for fortress
+   d. If not found, walk another 100 blocks east
+   e. Repeat until fortress found or 500+ blocks traveled
+   f. If 500 blocks east with no result, try west from spawn
+   g. Then try north-south (fortresses run north-south, so east-west
+      is the best direction to CROSS one)
+5. remember("fortress_coords: x, y, z")
+6. go_to(x, y, z)                     → approach the fortress
+```
+
+### Phase 5: Blaze Hunting
+
+```
+1. scan_area(32, "spawners")          → find blaze spawner room
+2. equip("shield", "offhand")         → critical — blocks fireballs
+3. equip("iron_sword")                → or diamond_sword if available
+4. defense_mode(true)                 → auto-aggro blazes + other hostiles
+5. approach(spawner_x, spawner_y, spawner_z)  → get LOS to blazes
+6. attack_entity("blaze")             → engage
+7. collect_drops()                    → pick up blaze rods
+8. Repeat 6-7 until you have 10+ blaze rods
+9. If overwhelmed:
+   - place_block under yourself to pillar up + cover
+   - retreat to a corridor (blazes can't chase well in tight spaces)
+   - eat: consume("best_food")
+   - wait for HP regen, then re-engage
+```
+
+### Phase 6: Return
+
+```
+1. confirm count: get_inventory        → should have 10+ blaze rods
+2. go_to(nether_spawn_coords)          → return to portal
+3. approach(portal_block) or go_to     → step back into Overworld
+4. remember("blaze_rod_count: N")
+5. todo complete "gather 10+ blaze rods"
+6. Now you can craft blaze powder: craft("blaze_powder", 8)
+   → 1 blaze rod = 2 blaze powder
+   → Used for Eyes of Ender and potion brewing
+```
+
+**Estimated resources needed:** 14 obsidian, 1 diamond pickaxe, full iron armor, shield, iron or diamond sword, 20+ food, 64+ torches (for the Nether), flint_and_steel.
 
 ---
 

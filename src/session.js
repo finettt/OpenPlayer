@@ -251,7 +251,7 @@ class SessionManager {
       `weather: ${bot.isRaining ? 'rain' : 'clear'}`,
       `pos: (${Math.round(pos.x)}, ${Math.round(pos.y)}, ${Math.round(pos.z)})`,
       `biome: ${bot.blockAt?.(pos)?.name ?? 'unknown'}`,
-      `dimension: overworld`,
+      `dimension: ${bot.game?.dimension?.replace('minecraft:', '') ?? 'overworld'}`,
     ];
 
     // inventory
