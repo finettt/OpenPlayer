@@ -131,12 +131,12 @@ const CRIT_COOLDOWN_TICKS = 12;         // Min ticks between crit-jumps (~600ms)
                                         // — sword cooldown is ~12.5 ticks at 1.6 atk speed
 const SHIELD_RANGED_RADIUS = 16;        // Raise shield if archer within this range
 const SHIELD_MELEE_RADIUS = 4;          // Raise shield if melee threat within this range
-const SHIELD_LOWER_MS = 80;             // Lower shield this long before a swing (attack registers in ~50ms)
+const SHIELD_LOWER_MS = 120;            // Lower shield this long before a swing
+const SHIELD_FIREBALL_RADIUS = 32;      // Raise shield + rotate if fireball within range
 const RANGED_ATTACKER_NAMES = new Set([
   'skeleton', 'stray', 'wither_skeleton',
-  'pillager', 'piglin',
+  'pillager', 'piglin', 'blaze', 'ghast',
 ]);
-// blaze/ghast use fireballs — shield helps but they also burn from below
 // players can be ranged too but we can't know without arrow tracking
 
 // ===== Shield Durability Tuning =====
@@ -1265,6 +1265,27 @@ async function tryEat(bot, state) {
   }
 }
 
+// --- Fireball detection -----------------------------------------------------
+
+/**
+ * Find the nearest fireball entity within range.
+ * Returns { entity, dist } or null.
+ */
+function findNearestFireball(bot, radius) {
+  const pos = bot.entity.position;
+  let best = null;
+  let bestDist = Infinity;
+  for (const entity of Object.values(bot.entities)) {
+    if (!entity?.position || !entity.isValid) continue;
+    // Match fireball entities (blaze, ghast, wither, dragon fireballs)
+    if (entity.name !== 'fireball' && entity.name !== 'small_fireball') continue;
+    const dist = entity.position.distanceTo(pos);
+    if (dist > radius || dist < 2) continue; // ignore if already too close (about to hit)
+    if (dist < bestDist) { bestDist = dist; best = entity; }
+  }
+  return best ? { entity: best, dist: bestDist } : null;
+}
+
 // --- Crit & shield managers -------------------------------------------------
 
 /**
@@ -1446,6 +1467,33 @@ function installShieldManager(bot, state) {
     // SHIELD_RANGED_RADIUS (16m) but the projectile is already here.
     if (!want && (isArrowIncoming(bot, 8) || isFireballIncoming(bot, 8))) {
       want = true;
+    }
+
+    // Fireball detection — rotate toward + raise shield
+    const fireball = findNearestFireball(bot, SHIELD_FIREBALL_RADIUS);
+    if (fireball) {
+      // Stop pathfinder+pvp so they don't fight us for rotation control
+      try { bot.pathfinder.stop(); } catch { /* ignore */ }
+      if (bot.pvp?.target) { try { bot.pvp.stop(); } catch { /* ignore */ } }
+
+      const fbId = fireball.entity.id;
+      if (state.fireballTargetId !== fbId) {
+        // New fireball — rotate toward it
+        state.fireballTargetId = fbId;
+        const fbPos = fireball.entity.position;
+        const mePos = bot.entity.position;
+        const dx = fbPos.x - mePos.x;
+        const dz = fbPos.z - mePos.z;
+        const targetYaw = Math.atan2(dz, dx) + Math.PI / 2; // MC yaw: 0=-Z, +clockwise
+        const dy = fbPos.y - mePos.y;
+        const horizontalDist = Math.sqrt(dx * dx + dz * dz);
+        const targetPitch = Math.atan2(-dy, horizontalDist);
+        try { bot.look(targetYaw, targetPitch, true); } catch { /* ignore */ }
+      }
+      // Raise shield every tick fireball exists (blocks while rotating, fully aligned next tick)
+      want = true;
+    } else {
+      state.fireballTargetId = null;
     }
 
     if (want) raise(); else lower();

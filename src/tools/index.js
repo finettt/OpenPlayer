@@ -55,6 +55,8 @@ const mineBlockType = require('./mine_block_type')(deps);
 const attackEntity = require('./attack_entity')(deps);
 const defenseMode = require('./defense_mode')(deps);
 const bowAttack = require('./bow_attack')();
+const fleeFrom = require('./flee_from')(deps);
+const buildPortal = require('./build_portal')(deps);
 
 const ALL_TOOLS = [
   sendMessage,
@@ -101,6 +103,8 @@ const ALL_TOOLS = [
   attackEntity,
   defenseMode,
   bowAttack,
+  fleeFrom,
+  buildPortal,
 ];
 
 function registerTools(registry, config) {
