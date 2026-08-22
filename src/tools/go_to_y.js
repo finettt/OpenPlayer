@@ -1,5 +1,6 @@
 'use strict';
 
+require('../movements');
 module.exports = function ({ goals, Movements }) {
   return {
     name: 'go_to_y',
@@ -19,7 +20,7 @@ module.exports = function ({ goals, Movements }) {
       const targetY = Math.min(Math.max(args.y, 1), 319);
 
       try {
-        bot.pathfinder.setMovements(new Movements(bot));
+        bot.pathfinder.setMovements(require('../movements').makeMovements(bot));
         bot.pathfinder.setGoal(new goals.GoalY(targetY), true);
 
         const timeout = 45000;

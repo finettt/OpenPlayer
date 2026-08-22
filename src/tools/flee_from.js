@@ -14,6 +14,7 @@
  */
 
 const { goals, Movements } = require('mineflayer-pathfinder');
+const { makeMovements } = require('../movements');
 
 const DEFAULT_SAFE_DISTANCE = 32;
 const DEFAULT_SEARCH_RADIUS = 64;

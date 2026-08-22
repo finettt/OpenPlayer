@@ -36,6 +36,7 @@
 
 const { Movements, goals } = require('mineflayer-pathfinder');
 const { Vec3 } = require('vec3');
+const { makeMovements } = require('../movements');
 
 // Debug toggle — set true to trace projectile detection/dodge decisions
 const VERBOSE = true;
@@ -1552,7 +1553,7 @@ function enableDefense(bot) {
   try { bot.pvp.stop(); } catch { /* ignore */ }
 
   try {
-    if (!bot._combatMovements) bot._combatMovements = new Movements(bot);
+    if (!bot._combatMovements) bot._combatMovements = makeMovements(bot);
     bot.pvp.movements = bot._combatMovements;
   } catch { /* ignore */ }
 

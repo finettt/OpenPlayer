@@ -27,11 +27,47 @@ class Agent {
     }
 
     const ac = this.queue.createAbortController();
+    const maxSteps = 40; // hard cap: a run that never calls end_loop must die eventually
+    let steps = 0;
 
     try {
       while (true) {
         if (ac.signal.aborted) {
           this.log.info('Run interrupted by steer message');
+          return;
+        }
+
+        if (++steps > maxSteps) {
+          // Segment reset rather than hard stop: while the todo list is
+          // active AND making progress, start a fresh run automatically.
+          // Only truly stall out (ask the player) after repeated segments
+          // with no change in todo status.
+          const snapshot = JSON.stringify((this.session.todos ?? []).map((t) => [t.id, t.status]));
+          const progressed = snapshot !== this._lastTodosSnapshot;
+          this._lastTodosSnapshot = snapshot;
+          const todosActive = (this.session.todos ?? []).some((t) => t.status !== 'completed');
+          this._stalledSegments = progressed ? 0 : (this._stalledSegments ?? 0) + 1;
+
+          if (todosActive && (progressed || this._stalledSegments < 3)) {
+            this.log.info(
+              `Reasoning loop hit ${maxSteps} steps — auto-continuing ` +
+              `(todos ${progressed ? 'progressing' : `stalled ×${this._stalledSegments}`})`
+            );
+            this.queue.push({
+              type: 'event',
+              source: 'step_limit',
+              content:
+                `[SYSTEM]: You reached the per-run thinking limit (${maxSteps} steps). ` +
+                'Your todo list is NOT finished. Do NOT greet or chat — just CONTINUE your current task. ' +
+                'Prefer batching independent tool calls, and never repeat an action that returned an error.',
+            });
+            return;
+          }
+
+          this.log.warn(`Reasoning loop hit ${maxSteps} steps — force-ending run`);
+          try {
+            await this.toolContext.sendChat('I hit my per-task thinking limit and am stopping. Give me a new instruction to continue.');
+          } catch { /* chat may also be unavailable */ }
           return;
         }
 

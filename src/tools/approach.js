@@ -1,5 +1,6 @@
 'use strict';
 
+require('../movements');
 module.exports = function ({ goals, Movements, vec3 }) {
   return {
     name: 'approach',
@@ -41,7 +42,7 @@ module.exports = function ({ goals, Movements, vec3 }) {
       }
 
       try {
-        bot.pathfinder.setMovements(new Movements(bot));
+        bot.pathfinder.setMovements(require('../movements').makeMovements(bot));
         bot.pathfinder.setGoal(new goals.GoalGetToBlock(args.x, blockY, args.z), true);
 
         const timeout = 30000;

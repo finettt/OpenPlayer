@@ -1,5 +1,6 @@
 'use strict';
 
+require('../movements');
 module.exports = function ({ vec3, goals, Movements }) {
   return {
     name: 'collect_drops',
@@ -67,7 +68,7 @@ module.exports = function ({ vec3, goals, Movements }) {
 
         // Navigate toward the item
         try {
-          bot.pathfinder.setMovements(new Movements(bot));
+          bot.pathfinder.setMovements(require('../movements').makeMovements(bot));
           bot.pathfinder.setGoal(
             new goals.GoalNear(targetPos.x, targetPos.y, targetPos.z, 1),
             true

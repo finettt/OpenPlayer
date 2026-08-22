@@ -1,5 +1,6 @@
 'use strict';
 
+require('../movements');
 module.exports = function ({ goals, Movements }) {
   return {
     name: 'follow_player',
@@ -32,7 +33,7 @@ module.exports = function ({ goals, Movements }) {
         return `Player ${args.username} not found nearby.`;
       }
 
-      bot.pathfinder.setMovements(new Movements(bot));
+      bot.pathfinder.setMovements(require('../movements').makeMovements(bot));
       bot.pathfinder.setGoal(new goals.GoalFollow(player.entity, distance), true);
 
       bot._followInterval = setInterval(() => {

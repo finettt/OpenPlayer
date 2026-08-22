@@ -66,9 +66,17 @@ function renderDamageSummary() {
 
   if (_damage.envHits > 0 && _damage.hits === 0) {
     // Pure environmental window
-    parts.push(`[SYSTEM]: Environmental damage ×${_damage.envHits}.`);
-    parts.push(`HP ${_damage.minHp.toFixed(1)}/20 (was ${_damage.maxHp.toFixed(1)}).`);
-    parts.push('Likely cause: fire, lava, drowning, fall, cactus, suffocation, or starvation. Defense_mode cannot help — move away from the hazard.');
+    const starving = bot.food != null && bot.food <= 2;
+    if (starving) {
+      parts.push(`[SYSTEM]: STARVATION — HP ${_damage.minHp.toFixed(1)}/20, food ${Math.round(bot.food)}/20.`);
+      parts.push('You are taking starvation damage. ACT NOW: consume(best_food) if you have ANY edible item.');
+      parts.push('If you truly have no food: hunt an animal (attack_entity cow/pig/chicken/sheep), break melons/pumpkins, or collect bread/carrots/potatoes from villages.');
+      parts.push('On normal difficulty starvation stops at 1 HP — but you cannot regenerate without food. Fix hunger BEFORE continuing any other task.');
+    } else {
+      parts.push(`[SYSTEM]: Environmental damage ×${_damage.envHits}.`);
+      parts.push(`HP ${_damage.minHp.toFixed(1)}/20 (was ${_damage.maxHp.toFixed(1)}).`);
+      parts.push('Likely cause: fire, lava, drowning, fall, cactus, suffocation. Defense_mode cannot help — move away from the hazard.');
+    }
     return parts.join(' ');
   }
   const mobTallies = [..._damage.byMob.entries()]
@@ -208,6 +216,7 @@ function pushDamageEvent({ attacker, attackerDist, environmental }) {
 const { Camera } = require('./src/camera');
 const { CommandQueue } = require('./src/queue');
 const { Agent } = require('./src/agent');
+const { installHazardReflex } = require('./src/hazard_reflex');
 
 const log = new Logger('main', config.logging.level);
 
@@ -254,6 +263,7 @@ function createBot() {
     reconnectAttempts = 0;
     bot._dimension = bot.game?.dimension?.replace('minecraft:', '') ?? 'overworld';
     log.info(`Bot joined the server in dimension: ${bot._dimension}`);
+    installHazardReflex(bot);
 
     // If the bot spawns in the Nether, enable defense mode immediately
     if (bot._dimension === 'the_nether' && bot.pvp && !bot._defenseMode?.active) {
