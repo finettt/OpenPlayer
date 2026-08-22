@@ -566,6 +566,37 @@ function createBot() {
   bot.on('kicked', (reason) => log.warn(`Kicked: ${JSON.stringify(reason)}`));
   bot.on('error', (err) => log.error(`Bot error: ${err.message}`));
 
+  // Proactive hunger warning — fire BEFORE starvation damage starts.
+  // The damage aggregator only speaks up once HP is actually dropping (food 0);
+  // this gives the LLM a cheap early-exit at food ≤ 6 so it never gets there.
+  let hungerWarnedAt = null; // null | 'warn' | 'crit' — avoid event spam
+  bot.on('health', () => {
+    if (!bot?.entity) return;
+    const food = Math.round(bot.food);
+    if (food <= 4 && hungerWarnedAt !== 'crit') {
+      hungerWarnedAt = 'crit';
+      queue.push({
+        type: 'event',
+        source: 'hunger',
+        content:
+          `[SYSTEM]: HUNGER CRITICAL — food ${food}/20, starvation damage starts at 0. ` +
+          'ACT NOW: consume(best_food). If you have no food: at night use defense_mode to kill zombies and eat rotten flesh; ' +
+          'at dawn hunt animals. Do NOT continue mining/traveling until food ≥ 10.',
+      });
+    } else if (food <= 6 && food > 4 && hungerWarnedAt !== 'warn') {
+      hungerWarnedAt = 'warn';
+      queue.push({
+        type: 'event',
+        source: 'hunger',
+        content:
+          `[SYSTEM]: Food low (${food}/20). Plan your next meal NOW — finish the current action, then get food ` +
+          '(hunt/cook animals, or emergency zombie-flesh farming at night per SOUL.md). Never let it reach 0.',
+      });
+    } else if (food >= 12 && hungerWarnedAt !== null) {
+      hungerWarnedAt = null; // re-arm after recovery
+    }
+  });
+
   bot.on('end', async (reason) => {
     log.warn(`Disconnected from server (${reason ?? 'unknown'})`);
     stopHeartbeat();
