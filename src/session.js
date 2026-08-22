@@ -250,7 +250,7 @@ class SessionManager {
       `time: ${bot.time.timeOfDay} / day ${bot.time.timeSinceWorldStart > 0 ? Math.floor(bot.time.timeSinceWorldStart / 24000) + 1 : 1} / ${this._dayPhase(bot)}`,
       `weather: ${bot.isRaining ? 'rain' : 'clear'}`,
       `pos: (${Math.round(pos.x)}, ${Math.round(pos.y)}, ${Math.round(pos.z)})`,
-      `biome: ${bot.blockAt?.(pos)?.name ?? 'unknown'}`,
+      `biome: ${(() => { try { return bot.registry?.biomesArray?.[bot.world.getBiome(bot.entity.position)]?.name ?? 'unknown'; } catch { return 'unknown'; } })()}`,
       `dimension: ${bot.game?.dimension?.replace('minecraft:', '') ?? 'overworld'}`,
     ];
 
@@ -283,11 +283,14 @@ class SessionManager {
   }
 
   _dayPhase(bot) {
+    // Minecraft timeOfDay: 0 = 06:00 (sunrise), 6000 = noon, 12000 = 18:00
+    // (sunset), 13000-23000 = night, 23000-24000 = pre-dawn.
     const t = bot.time.timeOfDay;
-    if (t < 6000) return 'night';
-    if (t < 12000) return 'morning';
-    if (t < 18000) return 'afternoon';
-    if (t < 22000) return 'evening';
+    if (t < 1000) return 'morning';       // 06:00-07:00 real-time equivalent
+    if (t < 6000) return 'day';           // sunrise → noon
+    if (t < 11000) return 'afternoon';    // noon → before dusk
+    if (t < 12000) return 'dusk';
+    if (t < 13000) return 'nightfall';
     return 'night';
   }
 

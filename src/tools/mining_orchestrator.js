@@ -145,6 +145,14 @@ async function mineBlocks(bot, mcData, options, config, log) {
       } catch (err) {
         log.warn(`collectBlock failed for ${block.name}: ${err.message}`);
 
+        // CRITICAL: cancel the abandoned collect task. withTimeout leaves the
+        // underlying operation running — pathfinder goals, temporary event
+        // subscribers, and the collectblock target queue all stay alive.
+        // Back-to-back timeouts (big radius + unreachable ore) stack dozens of
+        // these and OOM the process. This was the memory leak.
+        try { await bot.collectBlock.cancelTask(); } catch { /* best effort */ }
+        try { bot.pathfinder.setGoal(null); } catch { /* ignore */ }
+
         // Check if failure was caused by tool breaking
         if (needsTool) {
           const toolInfo = checkHasTool(bot, mcData, harvestTools);

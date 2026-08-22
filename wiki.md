@@ -246,6 +246,10 @@ Diamond ore: **Y = −64 to Y = 16**, peak at **Y = −59**. Veins of 1-4 blocks
 
 ### Nether Biomes
 
+**PIGLIN RULE:** Piglins attack on sight UNLESS you wear at least one piece of golden armor. Before approaching piglins: equip("golden_helmet") or any golden armor piece — hazard_reflex does this automatically if you carry gold gear. Zombified piglins are neutral — never hit them (the whole group aggroes).
+
+**Bartering:** hold a gold ingot, press use on a piglin → it takes the ingot and tosses random loot (ender pearls, fire res potions, string, obsidian, etc.). 1 ingot = 1 roll. Good emergency source for ender pearls and fire resistance.
+
 | Biome | Key Features | Danger Level |
 |---|---|---|
 | **Nether Wastes** | Gold nuggets, nether quartz, piglins, ghasts, magma cubes | Medium |

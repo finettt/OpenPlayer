@@ -1,10 +1,13 @@
 'use strict';
 
+const { smartDig } = require('../digging');
+
 module.exports = function ({ vec3 }) {
   return {
     name: 'break_block',
     description:
-      'Break a block at given coordinates. Auto-selects best tool from inventory. ' +
+      'Break a block at given coordinates. Auto-selects the best tool from inventory ' +
+      'and refuses (with an explanation) if no available tool can actually harvest the block. ' +
       'Use for mining ores, gathering wood, clearing paths, etc.',
     parameters: {
       type: 'object',
@@ -28,12 +31,16 @@ module.exports = function ({ vec3 }) {
       if (dist > 6) {
         return `Block too far (${Math.round(dist)}m). Move closer first (max ~6m).`;
       }
+      if (block.name === 'air' || block.name === 'cave_air' || block.name === 'void_air') {
+        return `Nothing to break at x=${args.x}, y=${args.y}, z=${args.z} (air).`;
+      }
 
       try {
-        await bot.dig(block);
+        const err = await smartDig(bot, block);
+        if (err) return err;
         return `Broke ${block.name} at x=${args.x}, y=${args.y}, z=${args.z}.`;
-      } catch (err) {
-        return `Failed to break ${block.name}: ${err.message}`;
+      } catch (digErr) {
+        return `Failed to break ${block.name}: ${digErr.message}`;
       }
     },
   };

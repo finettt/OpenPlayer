@@ -197,7 +197,7 @@ module.exports = function ({ goals, Movements }) {
       // which is wasteful when combat is re-engaged frequently.
       try {
         if (!bot._combatMovements) {
-          bot._combatMovements = new Movements(bot);
+          bot._combatMovements = require('../movements').makeMovements(bot);
         }
         bot.pvp.movements = bot._combatMovements;
       } catch { /* ignore if already set */ }

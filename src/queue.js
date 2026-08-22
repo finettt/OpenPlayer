@@ -65,7 +65,7 @@ class CommandQueue {
           this.log.error(`Error processing batch: ${err.message}`);
         }
         // If interrupted mid-drain, break and let new event drain
-        if (this._interrupted && this.pending.length > 0) break;
+        if (this._abortController?.signal.aborted && this.pending.length > 0) break;
       }
     } finally {
       this.running = false;

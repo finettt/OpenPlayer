@@ -36,6 +36,7 @@
 
 const { Movements, goals } = require('mineflayer-pathfinder');
 const { Vec3 } = require('vec3');
+const { makeMovements } = require('../movements');
 
 // Debug toggle — set true to trace projectile detection/dodge decisions
 const VERBOSE = true;
@@ -123,6 +124,17 @@ const EAT_COOLDOWN_MS = 8_000;          // Min time between eat attempts
 
 const KITE_RETREAT_BLOCKS = 3;          // Distance to step back when kiting
 const TARGET_SWITCH_RATIO = 0.8;        // Switch if new target is < 0.8 × current dist
+
+// ===== Bow combat tuning (referenced by the SOLO bow branch) =====
+// NOTE: these were missing since the bow-combat merge (PR #38) — the SOLO
+// branch threw ReferenceError every tick once threats appeared, killing the
+// whole defense loop. Values mirror bow_attack.js physics.
+const BOW_EYE_HEIGHT = 1.62;            // Player eye height (blocks)
+const BOW_EFFECTIVE_SPEED = 53;         // Arrow speed blocks/s used for flight-time estimation
+const BOW_MELEE_FORCE = 6;              // Threat closer than this → force melee mode
+const BOW_RANGED_THRESHOLD = 8;         // Target at least this far → consider bow
+const BOW_CHARGE_TIME_MS = 1000;        // Full-charge draw time (~1s)
+const BOW_SHOT_COOLDOWN_MS = 1800;      // Min time between shots
 
 // --- Crit / shield tuning ---------------------------------------------------
 
@@ -1552,7 +1564,7 @@ function enableDefense(bot) {
   try { bot.pvp.stop(); } catch { /* ignore */ }
 
   try {
-    if (!bot._combatMovements) bot._combatMovements = new Movements(bot);
+    if (!bot._combatMovements) bot._combatMovements = makeMovements(bot);
     bot.pvp.movements = bot._combatMovements;
   } catch { /* ignore */ }
 
