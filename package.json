@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "check": "node --check index.js && node --check config.js"
+    "check": "node --check index.js && node --check config.js",
+    "postinstall": "patch-package"
   },
   "keywords": [],
   "author": "finettt",
@@ -22,5 +23,8 @@
     "openai": "^6.42.0",
     "prismarine-viewer": "^1.33.0",
     "puppeteer": "^25.1.0"
+  },
+  "devDependencies": {
+    "patch-package": "^8.0.1"
   }
 }
